@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -22,14 +23,16 @@ export default function Login() {
       return;
     }
 
-    // ログイン成功時に注文ページへリダイレクト
     router.push("/orders");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <form onSubmit={handleLogin} className="bg-white p-8 rounded shadow-md">
-        <h2 className="text-2xl mb-4">ログイン</h2>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-6 sm:p-8 rounded shadow-md w-full max-w-md"
+      >
+        <h2 className="text-2xl mb-4 text-center">ログイン</h2>
         <input
           type="email"
           placeholder="メールアドレス"
@@ -52,6 +55,20 @@ export default function Login() {
         >
           ログイン
         </button>
+        <div className="mt-4 text-center space-y-2">
+          <Link
+            href="/login/new"
+            className="block text-blue-500 hover:underline"
+          >
+            アカウントをお持ちでない方はこちら
+          </Link>
+          <Link
+            href="/login/reissue"
+            className="block text-blue-500 hover:underline"
+          >
+            パスワードを忘れた方はこちら
+          </Link>
+        </div>
       </form>
     </div>
   );
