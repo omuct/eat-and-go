@@ -21,7 +21,7 @@ export default function UserPage() {
     };
 
     checkUser();
-  }, []);
+  }, [router]);
 
   return (
     <div>
