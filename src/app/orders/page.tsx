@@ -21,7 +21,7 @@ export default function Orders() {
     };
 
     checkUser();
-  }, []);
+  }, [router]);
 
   return (
     <div>
