@@ -42,11 +42,20 @@ export default function CartPage() {
 
   return (
     <div>
-      <Header>
-        <button onClick={() => router.push("/orders")}>注文画面に戻る</button>
-      </Header>
+      <Header />
+      <div className="p-8">
+        <h1 className="text-2xl mb-4">カート</h1>
+
+        <ul>
+          {/*orders.map((order) => (
+          <li key={order.id} className="mb-2">
+            {order.description} - {order.price}円
+          </li>
+        ))*/}
+        </ul>
+      </div>
       <div>
-        <h1>カートのページ</h1>
+        {/* <h1>カートのページ</h1> */}
         <p>商品数: {cartItems.length}</p>
         <p>合計金額: ¥{totalAmount}</p>
         <ul>
