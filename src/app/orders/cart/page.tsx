@@ -7,14 +7,9 @@ import Header from "@/app/_components/Header";
 
 export default function CartPage() {
   const router = useRouter();
-  interface CartItem {
-    id: number;
-    name: string;
-    price: number;
-    quantity: number;
-  }
-
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<
+    { id: number; name: string; price: number; quantity: number }[]
+  >([]);
   const [totalAmount, setTotalAmount] = useState(0);
 
   useEffect(() => {
