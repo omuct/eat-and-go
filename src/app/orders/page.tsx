@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Header from "@/app/_components/Header";
 //import { Order } from "@/app/types/order";
 
-
 export default function Orders() {
   const router = useRouter();
   //const [orders, setOrders] = useState<Order[]>([]);
@@ -46,15 +45,8 @@ export default function Orders() {
       <Header />
       <div className="p-8">
         <h1 className="text-2xl mb-4">注文一覧</h1>
-        
-        <ul>
-        {/*orders.map((order) => (
-          <li key={order.id} className="mb-2">
-            {order.description} - {order.price}円
-          </li>
-        ))*/}
-        </ul>
 
+        <ul></ul>
       </div>
     </div>
   );
