@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Header from "@/app/_components/Header";
 import ProductCard from "@/app/_components/ProductCard";
-import { Food } from "@/app/types/food";
+import { Food } from "@/app/_types/food";
 
 export default function Orders() {
   const router = useRouter();

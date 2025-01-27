@@ -1,5 +1,5 @@
 import React from "react";
-import { Food } from "@/app/types/food";
+import { Food } from "@/app/_types/food";
 
 type Props = {
   food: Food;
