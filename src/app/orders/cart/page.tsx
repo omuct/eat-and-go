@@ -8,7 +8,13 @@ import Header from "@/app/_components/Header";
 export default function CartPage() {
   const router = useRouter();
   const [cartItems, setCartItems] = useState<
-    { id: number; name: string; price: number; quantity: number }[]
+    {
+      id: number;
+      name: string;
+      price: number;
+      quantity: number;
+      image_url: string;
+    }[]
   >([]);
   const [totalAmount, setTotalAmount] = useState(0);
 
@@ -44,18 +50,22 @@ export default function CartPage() {
     <div>
       <Header />
       <div className="p-8">
-        <h1 className="text-2xl mb-4">カート</h1>
-
-        <ul>
-          {/*orders.map((order) => (
-          <li key={order.id} className="mb-2">
-            {order.description} - {order.price}円
-          </li>
-        ))*/}
-        </ul>
+        <h1 className="text-2xl mb-4">カートのページ</h1>
       </div>
       <div>
-        {/* <h1>カートのページ</h1> */}
+        <div>
+          {cartItems.map((item) => (
+            <div key={item.id}>
+              <img
+                src={item.image_url}
+                alt={item.name}
+                width={50}
+                height={50}
+              />
+              <p>{item.name}</p>
+            </div>
+          ))}
+        </div>
         <p>商品数: {cartItems.length}</p>
         <p>合計金額: ¥{totalAmount}</p>
         <ul>
