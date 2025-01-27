@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Header from "@/app/_components/Header";
-//import { Order } from "@/app/types/order";
+import ProductCard from "@/app/_components/ProductCard";
+import { Food } from "@/app/types/food";
 
 export default function Orders() {
   const router = useRouter();
-  //const [orders, setOrders] = useState<Order[]>([]);
+  const [foods, setFoods] = useState<Food[]>([]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -19,34 +20,36 @@ export default function Orders() {
       if (!session) {
         // 未認証の場合はログインページにリダイレクト
         router.push("/login");
-      } /*else {
-        fetchOrders();
-      }*/
+      } else {
+        // fetchFoods(); // データ取得の関数はコメントアウトしておきます
+      }
     };
 
     checkUser();
   }, [router]);
 
-  /*const fetchOrders = async () => {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*");
-
-    if (error) {
-      console.error("注文の取得に失敗しました:", error);
-    } else {
-      setOrders(data as Order[]);
-    }
-  };
-  */
-
   return (
     <div>
       <Header />
       <div className="p-8">
-        <h1 className="text-2xl mb-4">注文一覧</h1>
-
-        <ul></ul>
+        <h1 className="text-2xl mb-4">商品一覧</h1>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* サンプルデータを使用してデザインを確認 */}
+          {Array(8)
+            .fill(0)
+            .map((_, index) => (
+              <ProductCard
+                key={index}
+                food={{
+                  id: index,
+                  name: `商品名 ${index + 1}`,
+                  description: `商品の説明 ${index + 1}`,
+                  price: (index + 1) * 1000,
+                  imageUrl: `/image/product${index + 1}.jpg`,
+                }}
+              />
+            ))}
+        </div>
       </div>
     </div>
   );
