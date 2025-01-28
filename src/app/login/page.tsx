@@ -26,20 +26,6 @@ export default function Login() {
     router.push("/orders");
   };
 
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/orders`,
-      },
-    });
-
-    if (error) {
-      alert("Googleログインに失敗しました: " + error.message);
-      return;
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <form
@@ -69,26 +55,6 @@ export default function Login() {
         >
           ログイン
         </button>
-
-        <div className="my-4 flex items-center">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="px-4 text-gray-500">または</span>
-          <div className="flex-1 border-t border-gray-300"></div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center bg-white border border-gray-300 p-2 rounded hover:bg-gray-50"
-        >
-          <img
-            src="https://www.google.com/favicon.ico"
-            alt="Google"
-            className="w-5 h-5 mr-2"
-          />
-          Googleでログイン
-        </button>
-
         <div className="mt-4 text-center space-y-2">
           <Link
             href="/login/new"
