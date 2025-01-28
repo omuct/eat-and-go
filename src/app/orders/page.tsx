@@ -7,23 +7,27 @@ import Header from "@/app/_components/Header";
 import ProductCard from "@/app/_components/ProductCard";
 import { Food } from "@/app/_types/food";
 
-export const revalidate = 0; // ◀ サーバサイドのキャッシュを無効化する設定
+// revalidateをページコンポーネントの外で直接使用するのは避ける
+// export const revalidate = 0;
 
-export default function Orders() {
+export default function OrdersPage() {
+  // 名前を明確にする
   const router = useRouter();
   const [foods, setFoods] = useState<Food[]>([]);
 
   useEffect(() => {
     const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (!session) {
-        // 未認証の場合はログインページにリダイレクト
+        if (!session) {
+          router.push("/login");
+        }
+      } catch (error) {
+        console.error("認証エラー:", error);
         router.push("/login");
-      } else {
-        // fetchFoods(); // データ取得の関数はコメントアウトしておきます
       }
     };
 
@@ -31,12 +35,11 @@ export default function Orders() {
   }, [router]);
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-100">
       <Header />
-      <div className="p-8">
-        <h1 className="text-2xl mb-4">商品一覧</h1>
+      <main className="p-8">
+        <h1 className="text-2xl font-bold mb-4">商品一覧</h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {/* サンプルデータを使用してデザインを確認 */}
           {Array(8)
             .fill(0)
             .map((_, index) => (
@@ -52,7 +55,7 @@ export default function Orders() {
               />
             ))}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
