@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ここに設定を記述
+  images: {
+    domains: ["bujcyjitngtgpkabcqtk.supabase.co"], // あなたのSupabaseドメイン
+  },
+  experimental: {
+    serverActions: true,
+  },
+  webpack: (config) => {
+    config.externals = [...config.externals, "prisma", "postinstall"];
+    return config;
+  },
 };
 
 module.exports = nextConfig;
