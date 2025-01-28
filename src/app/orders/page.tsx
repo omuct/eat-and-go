@@ -7,6 +7,8 @@ import Header from "@/app/_components/Header";
 import ProductCard from "@/app/_components/ProductCard";
 import { Food } from "@/app/_types/food";
 
+export const revalidate = 0; // ◀ サーバサイドのキャッシュを無効化する設定
+
 export default function Orders() {
   const router = useRouter();
   const [foods, setFoods] = useState<Food[]>([]);
