@@ -4,14 +4,21 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
-import { Pencil, Save, X, AlertTriangle } from "lucide-react";
+import { Pencil, Save, X, AlertTriangle, Mail } from "lucide-react";
 import {
   UserProfile,
   AffiliationType,
   COURSE_NAMES,
 } from "@/app/_types/courses";
 
-export default function AccountPage({ params }: { params: { id: string } }) {
+interface AccountPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function AccountPage({ params }: AccountPageProps) {
+  const [provider, setProvider] = useState<string | null>(null);
   const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
@@ -39,11 +46,10 @@ export default function AccountPage({ params }: { params: { id: string } }) {
   const [newPassword, setNewPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // プロフィールデータの取得
-  // プロフィールデータの取得
+  const isGoogleAccount = provider === "google";
+
   const fetchProfile = async () => {
     try {
-      // セッションの確認
       const {
         data: { session },
         error: sessionError,
@@ -64,9 +70,11 @@ export default function AccountPage({ params }: { params: { id: string } }) {
         return;
       }
 
+      const appMetadata = session.user.app_metadata;
+      const provider = appMetadata.provider;
+      setProvider(provider ?? null);
       setEmail(session.user.email || "");
 
-      // プロフィールデータの取得
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -74,7 +82,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
         .single();
 
       if (profileError) {
-        // データが存在しない場合は新規作成
         if (profileError.code === "PGRST116") {
           const newProfile = {
             id: session.user.id,
@@ -116,11 +123,9 @@ export default function AccountPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // useEffectの修正
   useEffect(() => {
     fetchProfile();
 
-    // リアルタイム更新の購読
     const channel = supabase
       .channel(`profile:${params.id}`)
       .on(
@@ -143,16 +148,13 @@ export default function AccountPage({ params }: { params: { id: string } }) {
       )
       .subscribe();
 
-    // クリーンアップ関数
     return () => {
       channel.unsubscribe();
     };
   }, [params.id, router, isEditing]);
 
-  // プロフィール保存
   const handleSave = async () => {
     try {
-      // データの検証
       if (!editedProfile.name?.trim()) {
         setErrorMessage("名前を入力してください");
         return;
@@ -163,7 +165,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
         return;
       }
 
-      // 学生の場合は追加の検証
       if (editedProfile.affiliation_type === "学生") {
         if (!editedProfile.student_year) {
           setErrorMessage("学年を選択してください");
@@ -175,7 +176,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
         }
       }
 
-      // プロフィールデータの更新
       const { data, error } = await supabase
         .from("profiles")
         .update({
@@ -197,7 +197,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
 
       if (error) throw error;
 
-      // 更新成功時の処理
       setProfile(data);
       setEditedProfile(data);
       setIsEditing(false);
@@ -209,20 +208,17 @@ export default function AccountPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // 編集開始
   const handleEdit = () => {
     setIsEditing(true);
     setEditedProfile({ ...profile });
   };
 
-  // 編集キャンセル
   const handleCancel = () => {
     setIsEditing(false);
     setEditedProfile({ ...profile });
     setErrorMessage("");
   };
 
-  // メールアドレス更新
   const handleUpdateEmail = async () => {
     try {
       if (!newEmail.trim()) {
@@ -249,7 +245,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // パスワード更新
   const handleUpdatePassword = async () => {
     try {
       if (!newPassword.trim()) {
@@ -275,7 +270,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // アカウント削除
   const handleDeleteAccount = async () => {
     try {
       const confirmed = window.confirm(
@@ -283,7 +277,11 @@ export default function AccountPage({ params }: { params: { id: string } }) {
       );
       if (!confirmed) return;
 
-      const { error } = await supabase.auth.admin.deleteUser(params.id);
+      // Note: This endpoint might need proper server-side implementation
+      const { error } = await supabase.functions.invoke("delete-user", {
+        body: { userId: params.id },
+      });
+
       if (error) throw error;
 
       await supabase.auth.signOut();
@@ -336,22 +334,28 @@ export default function AccountPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        {/* メールアドレス設定 */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">メールアドレス設定</h2>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               現在のメールアドレス
             </label>
-            <input
-              type="email"
-              value={email}
-              disabled
-              className="w-full p-2 border rounded-md bg-gray-50"
-            />
+            <div className="flex items-center">
+              <input
+                type="email"
+                value={email}
+                disabled
+                className="w-full p-2 border rounded-md bg-gray-50"
+              />
+              {isGoogleAccount && (
+                <div className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md flex items-center">
+                  <Mail size={16} className="mr-1" />
+                  Google
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 名前 */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               名前
@@ -372,7 +376,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {/* 所属区分 */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               所属区分
@@ -405,7 +408,6 @@ export default function AccountPage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {/* 学生の場合の追加フィールド */}
           {editedProfile.affiliation_type === "学生" && (
             <>
               <div className="mb-6">
@@ -455,9 +457,9 @@ export default function AccountPage({ params }: { params: { id: string } }) {
                     className="w-full p-2 border rounded-md"
                   >
                     <option value="">選択してください</option>
-                    {COURSE_NAMES.map((course, index) => (
+                    {COURSE_NAMES.map((name, index) => (
                       <option key={index} value={index + 1}>
-                        {course}
+                        {name}
                       </option>
                     ))}
                   </select>
@@ -472,14 +474,16 @@ export default function AccountPage({ params }: { params: { id: string } }) {
             </>
           )}
 
-          <button
-            onClick={() => setIsUpdatingEmail(!isUpdatingEmail)}
-            className="text-blue-600 hover:text-blue-700"
-          >
-            メールアドレスを変更する
-          </button>
+          {!isGoogleAccount && (
+            <button
+              onClick={() => setIsUpdatingEmail(!isUpdatingEmail)}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              メールアドレスを変更する
+            </button>
+          )}
 
-          {isUpdatingEmail && (
+          {isUpdatingEmail && !isGoogleAccount && (
             <div className="mt-4">
               <input
                 type="email"
@@ -506,61 +510,70 @@ export default function AccountPage({ params }: { params: { id: string } }) {
           )}
         </div>
 
-        {/* パスワード設定 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">パスワード設定</h2>
-          <button
-            onClick={() => setIsUpdatingPassword(!isUpdatingPassword)}
-            className="text-blue-600 hover:text-blue-700"
-          >
-            パスワードを変更する
-          </button>
+        {!isGoogleAccount && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">パスワード設定</h2>
+            <button
+              onClick={() => setIsUpdatingPassword(!isUpdatingPassword)}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              パスワードを変更する
+            </button>
 
-          {isUpdatingPassword && (
-            <div className="mt-4">
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="現在のパスワード"
-                className="w-full p-2 border rounded-md mb-2"
-              />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="新しいパスワード"
-                className="w-full p-2 border rounded-md mb-2"
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setIsUpdatingPassword(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  キャンセル
-                </button>
-                <button
-                  onClick={handleUpdatePassword}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  更新
-                </button>
+            {isUpdatingPassword && (
+              <div className="mt-4">
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="現在のパスワード"
+                  className="w-full p-2 border rounded-md mb-2"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="新しいパスワード"
+                  className="w-full p-2 border rounded-md mb-2"
+                />
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setIsUpdatingPassword(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleUpdatePassword}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    更新
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
-        {/* アカウント削除 */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center text-red-600 hover:text-red-700"
-          >
-            <AlertTriangle size={20} className="mr-2" />
-            アカウントを削除する
-          </button>
+          <div className="mb-4">
+            {isGoogleAccount && (
+              <p className="text-gray-600 mb-4">
+                ※Googleアカウントでログインしている場合、アカウントの削除は
+                Googleアカウントの設定から行ってください。
+              </p>
+            )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center text-red-600 hover:text-red-700"
+              disabled={isGoogleAccount}
+            >
+              <AlertTriangle size={20} className="mr-2" />
+              アカウントを削除する
+            </button>
+          </div>
 
-          {showDeleteConfirm && (
+          {showDeleteConfirm && !isGoogleAccount && (
             <div className="mt-4 p-4 bg-red-50 rounded-md">
               <p className="text-red-700 mb-4">
                 アカウントを削除すると、すべてのデータが完全に削除されます。この操作は取り消せません。
