@@ -6,12 +6,11 @@ const nextConfig = {
   experimental: {
     serverActions: true,
   },
+  // Prisma関連の設定を追加
   webpack: (config) => {
-    config.externals = [...config.externals, "prisma", "postinstall"];
+    config.externals = [...config.externals, "pg-native"];
     return config;
   },
-  // 追加
-  pageExtensions: ["js", "jsx", "ts", "tsx"],
 };
 
 module.exports = nextConfig;
