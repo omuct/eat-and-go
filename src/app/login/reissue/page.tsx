@@ -12,7 +12,8 @@ export default function PasswordReset() {
     e.preventDefault();
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/login/update-password",
+      redirectTo:
+        "https://react-gakusyoku-app.vercel.app/login/update-password",
     });
 
     if (error) {
