@@ -1,10 +1,40 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, LogOut, ShoppingCart } from "lucide-react"; // ShoppingCartを追加
+import { User, LogOut, ShoppingCart, Settings } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 const Header = () => {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", session.user.id)
+          .single();
+
+        if (!profileError && profile?.is_admin) {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+      }
+    };
+
+    checkAdminStatus();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -26,6 +56,15 @@ const Header = () => {
         >
           <ShoppingCart size={24} />
         </div>
+        {isAdmin && (
+          <div
+            onClick={() => router.push("/admin")}
+            className="cursor-pointer hover:text-blue-600 transition-colors flex items-center"
+          >
+            <Settings size={24} />
+            <span className="ml-1 text-sm">管理者</span>
+          </div>
+        )}
         <div
           onClick={() => router.push("/user")}
           className="cursor-pointer hover:text-blue-600 transition-colors"
