@@ -47,6 +47,8 @@ export default function AccountPage({ params }: AccountPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
 
   const isGoogleAccount = provider === "google";
+  const isXAccount = provider === "twitter";
+  const isSocialAccount = isGoogleAccount || isXAccount;
 
   const fetchProfile = async () => {
     try {
@@ -353,6 +355,18 @@ export default function AccountPage({ params }: AccountPageProps) {
                   Google
                 </div>
               )}
+              {isXAccount && (
+                <div className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md flex items-center">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-4 h-4 mr-1"
+                    fill="currentColor"
+                  >
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  X
+                </div>
+              )}
             </div>
           </div>
 
@@ -474,7 +488,7 @@ export default function AccountPage({ params }: AccountPageProps) {
             </>
           )}
 
-          {!isGoogleAccount && (
+          {!isSocialAccount && (
             <button
               onClick={() => setIsUpdatingEmail(!isUpdatingEmail)}
               className="text-blue-600 hover:text-blue-700"
@@ -483,7 +497,7 @@ export default function AccountPage({ params }: AccountPageProps) {
             </button>
           )}
 
-          {isUpdatingEmail && !isGoogleAccount && (
+          {isUpdatingEmail && !isSocialAccount && (
             <div className="mt-4">
               <input
                 type="email"
@@ -510,7 +524,7 @@ export default function AccountPage({ params }: AccountPageProps) {
           )}
         </div>
 
-        {!isGoogleAccount && (
+        {!isSocialAccount && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">パスワード設定</h2>
             <button
@@ -557,23 +571,25 @@ export default function AccountPage({ params }: AccountPageProps) {
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-4">
-            {isGoogleAccount && (
+            {isSocialAccount && (
               <p className="text-gray-600 mb-4">
-                ※Googleアカウントでログインしている場合、アカウントの削除は
-                Googleアカウントの設定から行ってください。
+                ※{isGoogleAccount ? "Google" : "X"}
+                アカウントでログインしている場合、 アカウントの削除は
+                {isGoogleAccount ? "Google" : "X"}アカウントの
+                設定から行ってください。
               </p>
             )}
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center text-red-600 hover:text-red-700"
-              disabled={isGoogleAccount}
+              disabled={isSocialAccount}
             >
               <AlertTriangle size={20} className="mr-2" />
               アカウントを削除する
             </button>
           </div>
 
-          {showDeleteConfirm && !isGoogleAccount && (
+          {showDeleteConfirm && !isSocialAccount && (
             <div className="mt-4 p-4 bg-red-50 rounded-md">
               <p className="text-red-700 mb-4">
                 アカウントを削除すると、すべてのデータが完全に削除されます。この操作は取り消せません。
