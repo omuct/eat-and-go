@@ -40,6 +40,20 @@ export default function Login() {
     }
   };
 
+  const handleXLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "twitter", // Supabaseでは依然として"twitter"を使用
+      options: {
+        redirectTo: `${window.location.origin}/orders`,
+      },
+    });
+
+    if (error) {
+      alert("Xログインに失敗しました: " + error.message);
+      return;
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <form
@@ -79,7 +93,7 @@ export default function Login() {
         <button
           type="button"
           onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center bg-white border border-gray-300 p-2 rounded hover:bg-gray-50"
+          className="w-full flex items-center justify-center bg-white border border-gray-300 p-2 rounded hover:bg-gray-50 mb-2"
         >
           <img
             src="https://www.google.com/favicon.ico"
@@ -87,6 +101,19 @@ export default function Login() {
             className="w-5 h-5 mr-2"
           />
           Googleでログイン
+        </button>
+
+        <button
+          type="button"
+          onClick={handleXLogin}
+          className="w-full flex items-center justify-center bg-white border border-gray-300 p-2 rounded hover:bg-gray-50"
+        >
+          <img
+            src="/x-logo.png" // X（Twitter）のロゴ画像を配置する必要があります
+            alt="X"
+            className="w-5 h-5 mr-2"
+          />
+          Xでログイン
         </button>
 
         <div className="mt-4 text-center space-y-2">
