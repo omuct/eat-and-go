@@ -9,7 +9,7 @@ const ProductCard: React.FC<Props> = ({ food }) => {
   return (
     <div className="border p-4 rounded shadow">
       <img
-        src={food.imageUrl}
+        src={food.image_url}
         alt={food.name}
         className="w-full h-48 object-cover mb-4"
       />
