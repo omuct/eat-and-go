@@ -73,6 +73,8 @@ export default function AddNewMenu() {
           description: formData.description,
           image_url: imageUrl,
           is_published: true,
+          publish_start_date: null, // 明示的にnullを設定
+          publish_end_date: null, // 明示的にnullを設定
         },
       ]);
 

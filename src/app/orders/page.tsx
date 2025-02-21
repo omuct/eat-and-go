@@ -31,8 +31,12 @@ export default function OrdersPage() {
           .from("foods")
           .select("*")
           .eq("is_published", true)
-          .gte("publish_start_date", new Date().toISOString())
-          .lte("publish_end_date", new Date().toISOString())
+          .or(
+            `publish_start_date.is.null,publish_start_date.lt.${new Date().toISOString()}`
+          )
+          .or(
+            `publish_end_date.is.null,publish_end_date.gt.${new Date().toISOString()}`
+          )
           .order("created_at", { ascending: false });
 
         if (error) {
