@@ -152,124 +152,109 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
-        {/* イラストレーションセクション */}
-        <div className="flex flex-col justify-center items-center bg-gradient-to-br from-blue-500 to-purple-600 p-8 md:p-12 text-white text-center">
-          <div className="mb-8 md:mb-12">
-            <Utensils className="w-16 h-16 md:w-24 md:h-24 text-white mb-4 md:mb-6" />
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">
-              学食予約システム
-            </h2>
-          </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+        <div className="bg-gray-900 p-8 text-white text-center">
+          <Utensils className="w-16 h-16 mx-auto mb-4 text-white" />
+          <h1 className="text-2xl font-bold mb-2">学食予約システム</h1>
+          <p className="text-sm text-gray-400">簡単予約で快適な学生生活</p>
+        </div>
 
-          <div className="bg-white/10 rounded-xl p-4 md:p-6 w-full">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Clock
-                  className={`w-5 h-5 md:w-6 md:h-6 ${isOperating ? "text-green-400" : "text-red-400"}`}
-                />
-                <span className="text-sm md:text-base">営業状況</span>
-              </div>
-              <span
-                className={`
-            px-2 py-1 md:px-3 md:py-1 rounded-full text-xs md:text-sm font-semibold 
-            ${isOperating ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-          `}
-              >
-                {isOperating ? "営業中" : "休業中"}
-              </span>
-            </div>
-            <p className="text-xs md:text-sm text-white/70 mt-2">
+        <div className="p-8">
+          <div className="mb-6 text-center">
+            <p className="text-sm font-medium text-gray-600">営業状況</p>
+            <p
+              className={`text-lg font-bold ${isOperating ? "text-green-600" : "text-red-600"}`}
+            >
+              {isOperating ? "営業中" : "営業時間外"}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
               営業時間: 月〜金 9:00 - 14:00
             </p>
           </div>
-        </div>
-
-        {/* ログインセクション */}
-        <div className="p-8 md:p-12 flex flex-col justify-center">
-          <h1 className="text-2xl font-bold mb-6 text-center">ログイン</h1>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                className="block text-sm font-medium text-gray-700 mb-1"
+                htmlFor="email"
+              >
                 メールアドレス
               </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                className="block text-sm font-medium text-gray-700 mb-1"
+                htmlFor="password"
+              >
                 パスワード
               </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                 required
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 transition-colors"
             >
               ログイン
             </button>
           </form>
 
-          <div className="my-6 flex items-center">
-            <div className="flex-grow border-t border-gray-300"></div>
-            <span className="px-4 text-gray-500 text-sm">または</span>
-            <div className="flex-grow border-t border-gray-300"></div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={handleGoogleLogin}
-              className="flex items-center justify-center py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              <img
-                src="https://www.google.com/favicon.ico"
-                alt="Google"
-                className="w-5 h-5 mr-2"
-              />
-              Googleログイン
-            </button>
-
-            <button
-              onClick={handleXLogin}
-              className="flex items-center justify-center py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="w-5 h-5 mr-2"
-                fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg"
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600 mb-4">または</p>
+            <div className="space-y-2">
+              <button
+                onClick={handleGoogleLogin}
+                className="w-full py-2 px-4 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
               >
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-              Xログイン
-            </button>
+                <img
+                  src="https://www.google.com/favicon.ico"
+                  alt="Google"
+                  className="w-5 h-5 mr-2"
+                />
+                Googleでログイン
+              </button>
+              <button
+                onClick={handleXLogin}
+                className="w-full py-2 px-4 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-5 h-5 mr-2"
+                  fill="currentColor"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+                Xでログイン
+              </button>
+            </div>
           </div>
 
-          <div className="text-center mt-6 space-y-2">
-            <Link
-              href="/login/new"
-              className="block text-blue-600 hover:underline text-sm"
-            >
+          <div className="mt-6 text-center text-sm">
+            <Link href="/login/new" className="text-gray-600 hover:underline">
               アカウント作成
             </Link>
+            <span className="mx-2 text-gray-400">•</span>
             <Link
               href="/login/reissue"
-              className="block text-blue-600 hover:underline text-sm"
+              className="text-gray-600 hover:underline"
             >
               パスワードを忘れた方
             </Link>
