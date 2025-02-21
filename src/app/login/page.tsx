@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Clock, Info, CheckCircle, XCircle } from "lucide-react";
+import { Clock, Info, CheckCircle, XCircle, Utensils } from "lucide-react";
 import { format, parse } from "date-fns";
 
 export default function Login() {
@@ -152,128 +152,129 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* お知らせとステータス セクション */}
-      <div className="w-full md:w-1/2 bg-blue-50 p-6 md:p-12 flex flex-col justify-center">
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4 flex items-center">
-              <Info className="mr-2 text-blue-500" />
-              最近のお知らせ
-            </h3>
-            <div className="space-y-2">
-              <p className="text-gray-600">現在、お知らせはありません。</p>
-            </div>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
+        {/* イラストレーションセクション */}
+        <div className="flex flex-col justify-center items-center bg-gradient-to-br from-blue-500 to-purple-600 p-8 md:p-12 text-white text-center">
+          <div className="mb-8 md:mb-12">
+            <Utensils className="w-16 h-16 md:w-24 md:h-24 text-white mb-4 md:mb-6" />
+            <h2 className="text-2xl md:text-3xl font-bold mb-4">
+              学食予約システム
+            </h2>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4 flex items-center">
-              <Clock className="mr-2 text-green-500" />
-              営業状況
-            </h3>
-            <div className="flex items-center">
-              {isOperating ? (
-                <>
-                  <CheckCircle className="mr-2 text-green-500" />
-                  <span className="text-green-600">現在営業中です</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="mr-2 text-red-500" />
-                  <span className="text-red-600">現在は休業中です</span>
-                </>
-              )}
+          <div className="bg-white/10 rounded-xl p-4 md:p-6 w-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Clock
+                  className={`w-5 h-5 md:w-6 md:h-6 ${isOperating ? "text-green-400" : "text-red-400"}`}
+                />
+                <span className="text-sm md:text-base">営業状況</span>
+              </div>
+              <span
+                className={`
+            px-2 py-1 md:px-3 md:py-1 rounded-full text-xs md:text-sm font-semibold 
+            ${isOperating ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+          `}
+              >
+                {isOperating ? "営業中" : "休業中"}
+              </span>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              現在の時刻: {format(currentTime, "HH:mm")}
-            </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs md:text-sm text-white/70 mt-2">
               営業時間: 月〜金 9:00 - 14:00
             </p>
           </div>
         </div>
-      </div>
 
-      {/* ログインフォーム セクション */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12">
-        <form
-          onSubmit={handleLogin}
-          className="bg-white p-6 sm:p-8 rounded shadow-md w-full max-w-md"
-        >
-          <h2 className="text-2xl mb-4 text-center">ログイン</h2>
-          <input
-            type="email"
-            placeholder="メールアドレス"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-2 mb-4 border rounded"
-            required
-          />
-          <input
-            type="password"
-            placeholder="パスワード"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 mb-4 border rounded"
-            required
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-          >
-            ログイン
-          </button>
+        {/* ログインセクション */}
+        <div className="p-8 md:p-12 flex flex-col justify-center">
+          <h1 className="text-2xl font-bold mb-6 text-center">ログイン</h1>
 
-          <div className="my-4 flex items-center">
-            <div className="flex-1 border-t border-gray-300"></div>
-            <span className="px-4 text-gray-500">または</span>
-            <div className="flex-1 border-t border-gray-300"></div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                メールアドレス
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                パスワード
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              ログイン
+            </button>
+          </form>
+
+          <div className="my-6 flex items-center">
+            <div className="flex-grow border-t border-gray-300"></div>
+            <span className="px-4 text-gray-500 text-sm">または</span>
+            <div className="flex-grow border-t border-gray-300"></div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center bg-white border border-gray-300 p-2 rounded hover:bg-gray-50 mb-2"
-          >
-            <img
-              src="https://www.google.com/favicon.ico"
-              alt="Google"
-              className="w-5 h-5 mr-2"
-            />
-            Googleでログイン
-          </button>
-
-          <button
-            type="button"
-            onClick={handleXLogin}
-            className="w-full flex items-center justify-center bg-white border border-gray-300 p-2 rounded hover:bg-gray-50"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="w-5 h-5 mr-2"
-              fill="currentColor"
-              xmlns="http://www.w3.org/2000/svg"
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={handleGoogleLogin}
+              className="flex items-center justify-center py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-            Xでログイン
-          </button>
+              <img
+                src="https://www.google.com/favicon.ico"
+                alt="Google"
+                className="w-5 h-5 mr-2"
+              />
+              Googleログイン
+            </button>
 
-          <div className="mt-4 text-center space-y-2">
+            <button
+              onClick={handleXLogin}
+              className="flex items-center justify-center py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="w-5 h-5 mr-2"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+              Xログイン
+            </button>
+          </div>
+
+          <div className="text-center mt-6 space-y-2">
             <Link
               href="/login/new"
-              className="block text-blue-500 hover:underline"
+              className="block text-blue-600 hover:underline text-sm"
             >
-              アカウントをお持ちでない方はこちら
+              アカウント作成
             </Link>
             <Link
               href="/login/reissue"
-              className="block text-blue-500 hover:underline"
+              className="block text-blue-600 hover:underline text-sm"
             >
-              パスワードを忘れた方はこちら
+              パスワードを忘れた方
             </Link>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
