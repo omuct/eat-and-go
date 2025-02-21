@@ -1,16 +1,18 @@
 // src/app/admin/add-menu/[id]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { CATEGORIES, FoodCategory } from "@/app/_types/food";
 
 interface MenuFormData {
   name: string;
   price: number;
-  description: string;
+  description: string | null; // 説明を任意に
   image_url: string;
+  category: FoodCategory; // カテゴリーを追加
 }
 
 export default function EditMenuPage({ params }: { params: { id: string } }) {
@@ -20,6 +22,7 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
     price: 0,
     description: "",
     image_url: "",
+    category: "default-category" as FoodCategory,
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -36,30 +39,24 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
 
       if (error) {
         console.error("Error fetching food:", error);
-        router.push("/admin");
+        router.push("/admin/add-menu");
         return;
       }
 
       if (data) {
-        setFormData(data);
+        setFormData({
+          name: data.name,
+          price: data.price,
+          description: data.description,
+          image_url: data.image_url,
+          category: data.category,
+        });
         setImagePreview(data.image_url);
       }
     };
 
     fetchFood();
   }, [params.id, router]);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const uploadImage = async (file: File) => {
     const fileExt = file.name.split(".").pop();
@@ -96,18 +93,31 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
           price: formData.price,
           description: formData.description,
           image_url: imageUrl,
+          category: formData.category, // カテゴリーを追加
         })
         .eq("id", params.id);
 
       if (error) throw error;
 
-      router.push("/admin");
+      router.push("/admin/add-menu");
       alert("メニューを更新しました");
     } catch (error) {
       console.error("Error updating menu:", error);
       setError("メニューの更新に失敗しました");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -124,13 +134,13 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-lg shadow p-4 sm:p-6"
+            className="bg-white rounded-lg shadow p-6"
           >
-            {/* 入力フィールド */}
-            <div className="grid gap-4 sm:gap-6">
+            <div className="grid gap-6">
+              {/* 商品名 */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  商品名
+                  商品名 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -143,9 +153,35 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
                 />
               </div>
 
+              {/* カテゴリー */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  価格
+                  カテゴリー <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      category: e.target.value as FoodCategory,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                >
+                  <option value="">選択してください</option>
+                  {CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 価格 */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  価格 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -161,26 +197,27 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
                 />
               </div>
 
+              {/* 説明（任意） */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
                   説明
                 </label>
                 <textarea
-                  value={formData.description}
+                  value={formData.description || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
                   className="w-full px-3 py-2 border rounded"
                   rows={4}
-                  required
                 />
               </div>
 
+              {/* 画像アップロード */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  商品画像
+                  商品画像 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-4 sm:p-6">
+                <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-6">
                   <div className="text-center w-full">
                     {imagePreview ? (
                       <div className="mb-4">
@@ -201,6 +238,7 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
                           className="hidden"
                           accept="image/*"
                           onChange={handleImageChange}
+                          required={!imagePreview}
                         />
                       </label>
                     </div>
@@ -209,10 +247,11 @@ export default function EditMenuPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            {/* ボタン */}
             <div className="flex justify-end space-x-4 mt-6">
               <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={() => router.push("/admin/add-menu")}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 disabled={isLoading}
               >

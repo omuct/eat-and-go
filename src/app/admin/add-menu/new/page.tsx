@@ -5,12 +5,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { CATEGORIES, FoodCategory } from "@/app/_types/food";
 
 interface MenuFormData {
   name: string;
   price: number;
   description: string;
   image_url: string;
+  category: FoodCategory;
 }
 
 export default function AddNewMenu() {
@@ -20,6 +22,7 @@ export default function AddNewMenu() {
     price: 0,
     description: "",
     image_url: "",
+    category: "その他",
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -72,9 +75,10 @@ export default function AddNewMenu() {
           price: formData.price,
           description: formData.description,
           image_url: imageUrl,
+          category: formData.category, // カテゴリーを追加
           is_published: true,
-          publish_start_date: null, // 明示的にnullを設定
-          publish_end_date: null, // 明示的にnullを設定
+          publish_start_date: null,
+          publish_end_date: null,
         },
       ]);
 
@@ -103,13 +107,13 @@ export default function AddNewMenu() {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-lg shadow p-4 sm:p-6"
+            className="bg-white rounded-lg shadow p-6"
           >
-            {/* 入力フィールド */}
-            <div className="grid gap-4 sm:gap-6">
+            <div className="grid gap-6">
+              {/* 商品名 */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  商品名
+                  商品名 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -122,9 +126,35 @@ export default function AddNewMenu() {
                 />
               </div>
 
+              {/* カテゴリー */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  価格
+                  カテゴリー <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      category: e.target.value as FoodCategory,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                >
+                  <option value="">選択してください</option>
+                  {CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 価格 */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  価格 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -140,26 +170,27 @@ export default function AddNewMenu() {
                 />
               </div>
 
+              {/* 説明（任意） */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
                   説明
                 </label>
                 <textarea
-                  value={formData.description}
+                  value={formData.description || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
                   className="w-full px-3 py-2 border rounded"
                   rows={4}
-                  required
                 />
               </div>
 
+              {/* 画像アップロード */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  商品画像
+                  商品画像 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-4 sm:p-6">
+                <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-6">
                   <div className="text-center w-full">
                     {imagePreview ? (
                       <div className="mb-4">
@@ -180,6 +211,7 @@ export default function AddNewMenu() {
                           className="hidden"
                           accept="image/*"
                           onChange={handleImageChange}
+                          required={!imagePreview}
                         />
                       </label>
                     </div>
@@ -188,10 +220,11 @@ export default function AddNewMenu() {
               </div>
             </div>
 
+            {/* ボタン */}
             <div className="flex justify-end space-x-4 mt-6">
               <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={() => router.push("/admin/add-menu")}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 disabled={isLoading}
               >
