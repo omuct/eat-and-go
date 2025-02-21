@@ -91,102 +91,107 @@ export default function AddNewMenu() {
   };
 
   return (
+    // フォームのレイアウトを修正
     <div className="min-h-screen bg-gray-100">
-      <main className="p-8">
+      <main className="p-4 sm:p-8">
+        {" "}
+        {/* パディングを調整 */}
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold mb-6">新規メニュー追加</h1>
-
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          )}
+          <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
+            メニューの新規作成
+          </h1>
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-lg shadow p-6"
+            className="bg-white rounded-lg shadow p-4 sm:p-6"
           >
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                商品名
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded"
-                required
-              />
-            </div>
+            {/* 入力フィールド */}
+            <div className="grid gap-4 sm:gap-6">
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  商品名
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                価格
-              </label>
-              <input
-                type="number"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: parseInt(e.target.value) })
-                }
-                className="w-full px-3 py-2 border rounded"
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  価格
+                </label>
+                <input
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price: parseInt(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                説明
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded"
-                rows={4}
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  説明
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  rows={4}
+                  required
+                />
+              </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                商品画像
-              </label>
-              <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-6">
-                <div className="text-center">
-                  {imagePreview ? (
-                    <div className="mb-4">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="max-w-xs mx-auto rounded"
-                      />
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  商品画像
+                </label>
+                <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-4 sm:p-6">
+                  <div className="text-center w-full">
+                    {imagePreview ? (
+                      <div className="mb-4">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="max-w-xs mx-auto rounded max-h-48 object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                    )}
+                    <div className="mt-4">
+                      <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 inline-block">
+                        画像を選択
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                        />
+                      </label>
                     </div>
-                  ) : (
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                  )}
-                  <div className="mt-4">
-                    <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                      画像を選択
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                      />
-                    </label>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-end space-x-4 mt-6">
               <button
                 type="button"
-                onClick={() => router.push("/admin/add-menu")}
+                onClick={() => router.back()}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 disabled={isLoading}
               >
