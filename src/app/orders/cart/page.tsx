@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
+import Image from "next/image";
 
 export default function CartPage() {
   const router = useRouter();
@@ -51,30 +52,35 @@ export default function CartPage() {
       <Header />
       <div className="p-8">
         <h1 className="text-2xl mb-4">カートのページ</h1>
-      </div>
-      <div>
-        <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cartItems.map((item) => (
-            <div key={item.id}>
-              <img
+            <div
+              key={item.id}
+              className="border p-4 rounded shadow flex items-center"
+            >
+              <Image
                 src={item.image_url}
                 alt={item.name}
                 width={50}
                 height={50}
+                className="w-12 h-12 object-cover mr-4"
               />
-              <p>{item.name}</p>
+              <div>
+                <p className="font-bold">{item.name}</p>
+                <p>
+                  ¥{item.price} x {item.quantity}
+                </p>
+              </div>
             </div>
           ))}
         </div>
-        <p>商品数: {cartItems.length}</p>
-        <p>合計金額: ¥{totalAmount}</p>
-        <ul>
-          {cartItems.map((item) => (
-            <li key={item.id}>
-              {item.name} - ¥{item.price} x {item.quantity}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-8">
+          <p className="text-lg font-bold">商品数: {cartItems.length}</p>
+          <p className="text-lg font-bold">合計金額: ¥{totalAmount}</p>
+          <button className="mt-4 bg-green-500 text-white p-2 rounded">
+            注文を確定する
+          </button>
+        </div>
       </div>
     </div>
   );
