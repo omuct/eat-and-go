@@ -52,7 +52,7 @@ export default function EditAnnouncement({
     try {
       let image_url = announcement?.image_url;
       if (image) {
-        image_url = await uploadImage(supabase, image, announcement?.image_url);
+        image_url = await uploadImage(supabase, image);
       }
 
       const { error } = await supabase
