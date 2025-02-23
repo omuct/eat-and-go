@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import Image from "next/image";
+import axios from "axios";
 
 export default function CartPage() {
   const router = useRouter();
@@ -47,11 +48,24 @@ export default function CartPage() {
     checkUser();
   }, [router]);
 
+  const handleCheckout = async () => {
+    try {
+      const response = await axios.post("/api/paypay", {
+        amount: totalAmount,
+        items: cartItems,
+      });
+      const { url } = response.data;
+      window.location.href = url; // 支払いページにリダイレクト
+    } catch (error) {
+      console.error("支払いに失敗しました:", error);
+    }
+  };
+
   return (
     <div>
       <Header />
       <div className="p-8">
-        <h1 className="text-2xl mb-4">カートのページ</h1>
+        <h1 className="text-2xl mb-4">商品カート</h1>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cartItems.map((item) => (
             <div
@@ -77,7 +91,10 @@ export default function CartPage() {
         <div className="mt-8">
           <p className="text-lg font-bold">商品数: {cartItems.length}</p>
           <p className="text-lg font-bold">合計金額: ¥{totalAmount}</p>
-          <button className="mt-4 bg-green-500 text-white p-2 rounded">
+          <button
+            className="mt-4 bg-green-500 text-white p-2 rounded"
+            onClick={handleCheckout}
+          >
             注文を確定する
           </button>
         </div>
