@@ -2,7 +2,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { List, Users, ShoppingBag, Calendar } from "lucide-react";
+import { List, Users, ShoppingBag, Calendar, Bell } from "lucide-react";
+
 export default function AdminDashboard() {
   const router = useRouter();
 
@@ -31,6 +32,12 @@ export default function AdminDashboard() {
       icon: <Calendar size={24} />,
       path: "/admin/business-time",
     },
+    {
+      title: "お知らせ管理",
+      description: "お知らせの作成・編集・公開設定",
+      icon: <Bell size={24} />,
+      path: "/admin/announcement",
+    },
   ];
 
   return (
@@ -43,9 +50,9 @@ export default function AdminDashboard() {
             <div
               key={item.path}
               onClick={() => router.push(item.path)}
-              className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
             >
-              <div className="flex items-center mb-4 text-blue-600">
+              <div className="flex items-center mb-4 text-gray-600">
                 {item.icon}
                 <h2 className="text-xl font-semibold ml-3">{item.title}</h2>
               </div>
