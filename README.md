@@ -9,3 +9,5 @@ buildのためにapi/payment/typesのフォルダを一時的に削除した。�
 営業日の追加を行った
 
 2025/2/23 お知らせ機能の追加 src/app/admin/announcement他ホーム画面などを編集した。
+
+2025/2/23 PayPay決済機能実装準備 .envファイルの環境変数をVercelでも設定する必要がある
