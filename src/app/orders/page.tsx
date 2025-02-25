@@ -9,6 +9,7 @@ import { Food } from "@/app/_types/food";
 import { Announcement } from "@/app/_types/announcement";
 import Link from "next/link";
 import { ChevronRight, Bell, Calendar } from "lucide-react";
+import axios from "axios";
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -67,6 +68,34 @@ export default function OrdersPage() {
 
     checkUserAndFetchData();
   }, [router]);
+
+  const addToCart = async (
+    userId: string,
+    itemId: number,
+    quantity: number
+  ) => {
+    try {
+      const response = await axios.post("/api/orders", {
+        userId,
+        itemId,
+        quantity,
+      });
+      console.log(response.data.message);
+    } catch (error) {
+      console.error("カートに商品を追加できませんでした:", error);
+    }
+  };
+
+  const handleAddToCart = async (itemId: number) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+    await addToCart(session.user.id, itemId, 1);
+  };
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
@@ -215,7 +244,11 @@ export default function OrdersPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {foods.map((food) => (
-                <ProductCard key={food.id} food={food} />
+                <ProductCard
+                  key={food.id}
+                  food={food}
+                  onAddToCart={() => handleAddToCart(food.id)}
+                />
               ))}
             </div>
           )}
