@@ -72,13 +72,15 @@ export default function OrdersPage() {
   const addToCart = async (
     userId: string,
     itemId: number,
-    quantity: number
+    quantity: number,
+    selectedType: string
   ) => {
     try {
       const response = await axios.post("/api/orders", {
         userId,
         itemId,
         quantity,
+        selectedType,
       });
       console.log(response.data.message);
     } catch (error) {
@@ -86,7 +88,7 @@ export default function OrdersPage() {
     }
   };
 
-  const handleAddToCart = async (itemId: number) => {
+  const handleAddToCart = async (itemId: number, selectedType: string) => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -94,7 +96,7 @@ export default function OrdersPage() {
       router.push("/login");
       return;
     }
-    await addToCart(session.user.id, itemId, 1);
+    await addToCart(session.user.id, itemId, 1, selectedType);
   };
 
   const getCategoryLabel = (category: string) => {
@@ -247,7 +249,9 @@ export default function OrdersPage() {
                 <ProductCard
                   key={food.id}
                   food={food}
-                  onAddToCart={() => handleAddToCart(food.id)}
+                  onAddToCart={(selectedType) =>
+                    handleAddToCart(food.id, selectedType)
+                  }
                 />
               ))}
             </div>
