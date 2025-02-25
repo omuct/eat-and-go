@@ -3,16 +3,25 @@ import { Food } from "@/app/_types/food";
 
 type Props = {
   food: Food;
-  onAddToCart: (selectedType: string) => void;
+  onAddToCart: (selectedType: string, additionalPrice: number) => void;
 };
 
 const ProductCard: React.FC<Props> = ({ food, onAddToCart }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedType, setSelectedType] = useState("");
+  const [additionalPrice, setAdditionalPrice] = useState(0);
 
   const handleAddToCart = () => {
-    onAddToCart(selectedType);
+    onAddToCart(selectedType, additionalPrice);
     setShowModal(false);
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setAdditionalPrice(100);
+    } else {
+      setAdditionalPrice(0);
+    }
   };
 
   return (
@@ -29,27 +38,41 @@ const ProductCard: React.FC<Props> = ({ food, onAddToCart }) => {
         onClick={() => setShowModal(true)}
         className="mt-2 bg-blue-500 text-white p-2 rounded"
       >
-        種類を選択
+        カートに追加
       </button>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">おにぎりの種類を選択</h3>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full p-2 border rounded mb-4"
-            >
-              <option value="">選択してください</option>
-              <option value="梅">梅</option>
-              <option value="鮭">鮭</option>
-              <option value="昆布">昆布</option>
-            </select>
+            <h3 className="text-xl font-bold mb-4">商品詳細</h3>
+            <p className="mb-4">{food.description}</p>
+            {food.category === "麺" && (
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    onChange={handleCheckboxChange}
+                    className="mr-2"
+                  />
+                  麺大盛り (+¥100)
+                </label>
+              </div>
+            )}
+            {food.category === "丼" && (
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    onChange={handleCheckboxChange}
+                    className="mr-2"
+                  />
+                  ごはん大盛り (+¥100)
+                </label>
+              </div>
+            )}
             <button
               onClick={handleAddToCart}
               className="bg-blue-500 text-white p-2 rounded w-full"
-              disabled={!selectedType}
             >
               カートに追加
             </button>

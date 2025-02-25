@@ -69,26 +69,11 @@ export default function OrdersPage() {
     checkUserAndFetchData();
   }, [router]);
 
-  const addToCart = async (
-    userId: string,
+  const handleAddToCart = async (
     itemId: number,
-    quantity: number,
-    selectedType: string
+    selectedType: string,
+    additionalPrice: number
   ) => {
-    try {
-      const response = await axios.post("/api/orders", {
-        userId,
-        itemId,
-        quantity,
-        selectedType,
-      });
-      console.log(response.data.message);
-    } catch (error) {
-      console.error("カートに商品を追加できませんでした:", error);
-    }
-  };
-
-  const handleAddToCart = async (itemId: number, selectedType: string) => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -96,7 +81,28 @@ export default function OrdersPage() {
       router.push("/login");
       return;
     }
-    await addToCart(session.user.id, itemId, 1, selectedType);
+    await addToCart(session.user.id, itemId, 1, selectedType, additionalPrice);
+  };
+
+  const addToCart = async (
+    userId: string,
+    itemId: number,
+    quantity: number,
+    selectedType: string,
+    additionalPrice: number
+  ) => {
+    try {
+      const response = await axios.post("/api/orders", {
+        userId,
+        itemId,
+        quantity,
+        selectedType,
+        additionalPrice,
+      });
+      console.log(response.data.message);
+    } catch (error) {
+      console.error("カートに商品を追加できませんでした:", error);
+    }
   };
 
   const getCategoryLabel = (category: string) => {
@@ -249,8 +255,8 @@ export default function OrdersPage() {
                 <ProductCard
                   key={food.id}
                   food={food}
-                  onAddToCart={(selectedType) =>
-                    handleAddToCart(food.id, selectedType)
+                  onAddToCart={(selectedType, additionalPrice) =>
+                    handleAddToCart(food.id, selectedType, additionalPrice)
                   }
                 />
               ))}
