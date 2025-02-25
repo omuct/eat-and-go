@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const { id } = await request.json(); // Extracting payment ID from request
 
   try {
-    const response = await PAYPAY.PaymentDetails(id); // Attempting to get payment details
+    const response = await PAYPAY.GetPaymentDetails(id); // Attempting to get payment details
     return NextResponse.json(response.data); // Sending response back to client
   } catch (error) {
     console.error("PayPay Payment Status Error:", error); // Logging the error
