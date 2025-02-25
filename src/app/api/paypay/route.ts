@@ -39,12 +39,15 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error("PayPay Payment Error:", error); // Logging the error
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return new NextResponse(
       JSON.stringify({
         error: "支払いに失敗しました",
+        details: errorMessage,
       }),
       {
-        status: 400,
+        status: 500,
       }
     );
   }
