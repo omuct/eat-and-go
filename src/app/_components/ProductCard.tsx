@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Food } from "@/app/_types/food";
+import { supabase } from "@/lib/supabaseClient";
 
 type Props = {
   food: Food;
@@ -10,6 +11,26 @@ const ProductCard: React.FC<Props> = ({ food, onAddToCart }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedType, setSelectedType] = useState("");
   const [additionalPrice, setAdditionalPrice] = useState(0);
+  const [otherFoods, setOtherFoods] = useState<Food[]>([]);
+
+  useEffect(() => {
+    const fetchOtherFoods = async () => {
+      const { data, error } = await supabase
+        .from("foods")
+        .select("*")
+        .eq("category", "その他");
+
+      if (error) {
+        console.error("Error fetching other foods:", error);
+      } else {
+        setOtherFoods(data);
+      }
+    };
+
+    if (food.category === "その他") {
+      fetchOtherFoods();
+    }
+  }, [food.category]);
 
   const handleAddToCart = () => {
     onAddToCart(selectedType, additionalPrice);
@@ -70,9 +91,27 @@ const ProductCard: React.FC<Props> = ({ food, onAddToCart }) => {
                 </label>
               </div>
             )}
+            {food.category === "その他" && (
+              <div className="mb-4">
+                <label className="block mb-2">種類を選択</label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full p-2 border rounded mb-4"
+                >
+                  <option value="">選択してください</option>
+                  {otherFoods.map((otherFood) => (
+                    <option key={otherFood.id} value={otherFood.name}>
+                      {otherFood.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={handleAddToCart}
               className="bg-blue-500 text-white p-2 rounded w-full"
+              disabled={food.category === "その他" && !selectedType}
             >
               カートに追加
             </button>
