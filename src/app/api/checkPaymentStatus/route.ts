@@ -14,7 +14,14 @@ export async function POST(request: Request) {
 
   try {
     const response = await PAYPAY.GetPaymentDetails(id); // Attempting to get payment details
-    return NextResponse.json(response.data); // Sending response back to client
+    if ("data" in response) {
+      const responseData = response.data as { status: string }; // 明示的に型を指定
+      return NextResponse.json(responseData); // Sending response back to client
+    } else if ("message" in response) {
+      throw new Error(response.message as string);
+    } else {
+      throw new Error("Unknown error");
+    }
   } catch (error) {
     console.error("PayPay Payment Status Error:", error); // Logging the error
     return new NextResponse(

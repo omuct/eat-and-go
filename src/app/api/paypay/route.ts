@@ -23,13 +23,20 @@ export async function POST(request: Request) {
     codeType: "ORDER_QR",
     orderDescription: orderDescription,
     isAuthorization: false,
-    redirectUrl: `https://your-production-url.com/payment/${merchantPaymentId}`, // リダイレクトURLを設定
+    redirectUrl: `https://react-gakusyoku-app.vercel.app/payment/${merchantPaymentId}`, // リダイレクトURLを設定
     redirectType: "WEB_LINK",
   };
 
   try {
     const response = await PAYPAY.QRCodeCreate(payload); // Attempting to create a payment
-    return NextResponse.json({ url: response.data.url }); // Sending response back to client
+    if ("data" in response) {
+      const responseData = response.data as { url: string }; // 明示的に型を指定
+      return NextResponse.json({ url: responseData.url }); // Sending response back to client
+    } else if ("message" in response) {
+      throw new Error(response.message as string);
+    } else {
+      throw new Error("Unknown error");
+    }
   } catch (error) {
     console.error("PayPay Payment Error:", error); // Logging the error
     return new NextResponse(
