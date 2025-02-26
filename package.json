@@ -17,7 +17,7 @@
     "@fortawesome/fontawesome-svg-core": "^6.6.0",
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/react-fontawesome": "^0.2.2",
-    "@paypayopa/paypayopa-sdk-node": "^2.1.0",
+    "@paypayopa/paypayopa-sdk-node": "^0.2.0",
     "@prisma/client": "5.9.1",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.47.12",
