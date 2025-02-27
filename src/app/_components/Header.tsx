@@ -2,8 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User, LogOut, ShoppingCart, Settings, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { motion } from "framer-motion";
 
-const Header = () => {
+interface HeaderProps {
+  cartCount?: number;
+  cartAnimating?: boolean;
+}
+
+const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -49,9 +55,24 @@ const Header = () => {
           router.push("/orders/cart");
           setIsMenuOpen(false);
         }}
-        className="flex flex-col items-center cursor-pointer hover:text-blue-600 transition-colors"
+        className="flex flex-col items-center cursor-pointer hover:text-blue-600 transition-colors relative"
       >
-        <ShoppingCart size={24} />
+        {cartAnimating ? (
+          <motion.div
+            initial={{ rotate: 0 }}
+            animate={{ rotate: [0, -15, 15, -10, 10, -5, 5, 0] }}
+            transition={{ duration: 0.5 }}
+          >
+            <ShoppingCart size={24} />
+          </motion.div>
+        ) : (
+          <ShoppingCart size={24} />
+        )}
+        {cartCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            {cartCount}
+          </span>
+        )}
         <span className="text-xs mt-1 sm:hidden">カート</span>
       </div>
       {isAdmin && (
