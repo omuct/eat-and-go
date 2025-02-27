@@ -101,7 +101,7 @@ export default function MenuManagement() {
             className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             <PlusCircle className="mr-2" size={20} />
-            新規メニュー追加
+            新規メニューの追加
           </button>
         </div>
 
