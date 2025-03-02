@@ -1,11 +1,11 @@
+// /app/orders/complete-static/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import { CheckCircle, ArrowRight } from "lucide-react";
-
+export const dynamic = "force-dynamic";
 export default function OrderCompletePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
