@@ -412,7 +412,7 @@ export default function CartPage() {
       let total = 0;
       let discount = 0;
 
-      remainingItems.forEach((item) => {
+      remainingItems.forEach((item: CartItem) => {
         total += item.total_price;
         if (item.is_takeout) {
           discount += 10 * item.quantity;

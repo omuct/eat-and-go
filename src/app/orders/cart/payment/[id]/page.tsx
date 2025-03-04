@@ -120,7 +120,7 @@ export default function PaymentPage() {
       if (orderError) throw orderError;
 
       // 注文詳細を保存
-      const orderDetailsData = cartItems.map((item) => ({
+      const orderDetailsData = cartItems.map((item: CartItem) => ({
         order_id: order.id,
         food_id: item.food_id,
         name: item.name,
