@@ -1,20 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import { CheckCircle, ArrowRight } from "lucide-react";
 
 export default function OrderCompletePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const orderId = searchParams.get("orderId");
   const [counter, setCounter] = useState(10);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!orderId) {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("orderId");
+    setOrderId(id);
+
+    if (!id) {
+      console.error("注文IDが見つかりません。リダイレクトします。");
       router.push("/orders");
       return;
     }
@@ -36,7 +40,7 @@ export default function OrderCompletePage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [orderId, router]);
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -47,10 +51,16 @@ export default function OrderCompletePage() {
           <h1 className="text-2xl sm:text-3xl font-bold mb-2">
             注文が完了しました
           </h1>
-          <p className="text-gray-700 mb-2">
-            ご注文番号: <span className="font-bold">{orderNumber}</span>
-          </p>
-          <p className="text-gray-600">内部注文ID: {orderId}</p>
+          {orderNumber ? (
+            <>
+              <p className="text-gray-700 mb-2">
+                ご注文番号: <span className="font-bold">{orderNumber}</span>
+              </p>
+              <p className="text-gray-600">内部注文ID: {orderId}</p>
+            </>
+          ) : (
+            <p className="text-red-500">注文番号を取得できませんでした。</p>
+          )}
 
           <div className="max-w-md mx-auto mt-8 bg-blue-50 p-6 rounded-lg border border-blue-100">
             <h2 className="font-bold text-lg mb-2">
