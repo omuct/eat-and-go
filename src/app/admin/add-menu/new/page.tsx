@@ -3,9 +3,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { CATEGORIES, FoodCategory } from "@/app/_types/food";
+import Link from "next/link";
 
 interface MenuFormData {
   name: string;
@@ -101,6 +102,15 @@ export default function AddNewMenu() {
         {" "}
         {/* パディングを調整 */}
         <div className="max-w-2xl mx-auto">
+          <div className="mb-6">
+            <Link
+              href="/admin/add-menu"
+              className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+              <span className="font-medium">戻る</span>
+            </Link>
+          </div>
           <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
             メニューの新規作成
           </h1>

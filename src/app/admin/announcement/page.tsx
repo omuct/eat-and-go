@@ -4,6 +4,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Announcement } from "@/app/_types/announcement";
+import { ArrowLeft } from "lucide-react";
 
 const getCategoryLabel = (category: string) => {
   switch (category) {
@@ -74,6 +75,15 @@ export default function AnnouncementList() {
   };
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <Link
+          href="/admin"
+          className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+          <span className="font-medium">管理者画面一覧に戻る</span>
+        </Link>
+      </div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
           お知らせ一覧
