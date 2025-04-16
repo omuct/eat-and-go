@@ -21,6 +21,8 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { format } from "date-fns";
 
+const CATEGORIES = ["丼", "麺", "サラダ", "デザート", "飲み物"]; // Define your categories here
+
 export default function OrdersPage() {
   const router = useRouter();
   const [foods, setFoods] = useState<Food[]>([]);
@@ -358,17 +360,24 @@ export default function OrdersPage() {
               商品がありません
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {foods.map((food) => (
-                <div
-                  key={food.id}
-                  className="cursor-pointer"
-                  onClick={() => handleProductClick(food)}
-                >
-                  <ProductCard food={food} />
+            CATEGORIES.map((category) => (
+              <div key={category} className="mb-8">
+                <h3 className="text-xl font-semibold mb-4">{category}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {foods
+                    .filter((food) => food.category === category)
+                    .map((food) => (
+                      <div
+                        key={food.id}
+                        className="cursor-pointer"
+                        onClick={() => handleProductClick(food)}
+                      >
+                        <ProductCard food={food} />
+                      </div>
+                    ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))
           )}
         </section>
       </main>
