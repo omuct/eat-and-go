@@ -12,7 +12,7 @@ import Strike from "@tiptap/extension-strike";
 interface MenuBarProps {
   editor: ReturnType<typeof useEditor> | null;
 }
-
+//test
 const MenuBar = ({ editor }: MenuBarProps) => {
   if (!editor) {
     return null;
