@@ -22,6 +22,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { format } from "date-fns";
 
 export default function OrdersPage() {
+  const [sortByStore, setSortByStore] = useState(false); // 店舗名でソートするか
   const router = useRouter();
   const [foods, setFoods] = useState<Food[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -212,6 +213,7 @@ export default function OrdersPage() {
     setIsLargeSize(false);
     setIsTakeout(false);
   };
+
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case "business-hours":
@@ -344,7 +346,14 @@ export default function OrdersPage() {
         {/* 商品一覧セクション */}
         <section>
           <h2 className="text-2xl font-bold mb-4">商品一覧</h2>
-
+          <div className="mb-4 flex justify-end">
+            <button
+              className={`px-4 py-2 rounded ${sortByStore ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"}`}
+              onClick={() => setSortByStore((prev) => !prev)}
+            >
+              店舗名で{sortByStore ? "元に戻す" : "ソート"}
+            </button>
+          </div>
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}
@@ -357,7 +366,70 @@ export default function OrdersPage() {
             <div className="text-center py-8 text-gray-500">
               商品がありません
             </div>
+          ) : sortByStore ? (
+            // 店舗別グループ表示（美しいデザイン版）
+            (() => {
+              // 店舗名でグループ化
+              const groupedFoods = foods.reduce(
+                (groups, food) => {
+                  const storeName = food.store_name || "店舗情報なし";
+                  if (!groups[storeName]) {
+                    groups[storeName] = [];
+                  }
+                  groups[storeName].push(food);
+                  return groups;
+                },
+                {} as Record<string, typeof foods>
+              );
+
+              // 店舗名でソート
+              const sortedStoreNames = Object.keys(groupedFoods).sort();
+
+              return (
+                <div className="space-y-12">
+                  {sortedStoreNames.map((storeName, index) => (
+                    <div
+                      key={storeName}
+                      className="bg-white rounded-lg shadow-sm overflow-hidden"
+                    >
+                      {/* 店舗名ヘッダー */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 p-2 rounded-lg">
+                            <span className="text-blue-600 font-bold text-sm">
+                              店舗
+                            </span>
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-800">
+                            {storeName}
+                          </h3>
+                          <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
+                            {groupedFoods[storeName].length}品
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* その店舗の商品一覧 */}
+                      <div className="p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {groupedFoods[storeName].map((food) => (
+                            <div
+                              key={food.id}
+                              className="cursor-pointer transform hover:scale-105 transition-transform"
+                              onClick={() => handleProductClick(food)}
+                            >
+                              <ProductCard food={food} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
           ) : (
+            // 通常の一覧表示
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {foods.map((food) => (
                 <div

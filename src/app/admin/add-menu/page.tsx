@@ -16,6 +16,7 @@ interface Food {
   is_published: boolean;
   publish_start_date: string | null;
   publish_end_date: string | null;
+  store_name: string; // 追加
 }
 
 export default function MenuManagement() {
@@ -128,6 +129,9 @@ export default function MenuManagement() {
                       <h3 className="font-bold">{food.name}</h3>
                       <span className="text-gray-600">{food.price}円</span>
                     </div>
+                    <div className="mb-2 text-sm text-gray-500">
+                      店舗名: {food.store_name}
+                    </div>
                     <div className="flex items-center mb-2">
                       <button
                         onClick={() => togglePublish(food)}
@@ -210,6 +214,9 @@ export default function MenuManagement() {
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                       価格
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                      店舗名 {/* 追加 */}
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                       状態
