@@ -1,11 +1,12 @@
 // src/app/admin/add-menu/new/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { CATEGORIES, FoodCategory } from "@/app/_types/food";
+import Link from "next/link";
 
 interface MenuFormData {
   name: string;
@@ -13,6 +14,7 @@ interface MenuFormData {
   description: string;
   image_url: string;
   category: FoodCategory;
+  store_name: string; // 追加
 }
 
 export default function AddNewMenu() {
@@ -23,11 +25,36 @@ export default function AddNewMenu() {
     description: "",
     image_url: "",
     category: "その他",
+    store_name: "", // 追加
   });
+  const [stores, setStores] = useState<{ id: number; name: string }[]>([]); // 追加
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // 店舗一覧を取得する関数
+  const fetchStores = async () => {
+    console.log("店舗データを取得中..."); // デバッグ用
+
+    const { data, error } = await supabase
+      .from("stores")
+      .select("id, name")
+      .order("name");
+
+    if (error) {
+      console.error("Error fetching stores:", error);
+      setError("店舗情報の取得に失敗しました");
+      return;
+    }
+
+    console.log("取得した店舗データ:", data); // デバッグ用
+    setStores(data || []);
+  };
+
+  useEffect(() => {
+    fetchStores();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,33 +89,97 @@ export default function AddNewMenu() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(""); // エラーをリセット
+
+    // バリデーション
+    if (!formData.name.trim()) {
+      setError("商品名を入力してください");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.category) {
+      setError("カテゴリーを選択してください");
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.price <= 0) {
+      setError("価格は0円より大きい値を入力してください");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.store_name) {
+      setError("店舗名を選択してください");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!imageFile && !formData.image_url) {
+      setError("商品画像をアップロードしてください");
+      setIsLoading(false);
+      return;
+    }
+
+    console.log("フォームデータ:", formData);
+
+    console.log("フォームデータ:", formData); // デバッグ用
     try {
       let imageUrl = formData.image_url;
 
       if (imageFile) {
+        console.log("画像をアップロード中..."); // デバッグ用
         imageUrl = await uploadImage(imageFile);
+        console.log("アップロード完了:", imageUrl); // デバッグ用
       }
 
-      const { error } = await supabase.from("foods").insert([
-        {
-          name: formData.name,
-          price: formData.price,
-          description: formData.description,
-          image_url: imageUrl,
-          category: formData.category, // カテゴリーを追加
-          is_published: true,
-          publish_start_date: null,
-          publish_end_date: null,
-        },
-      ]);
+      const insertData = {
+        name: formData.name,
+        price: formData.price,
+        description: formData.description || null, // 空文字の場合はnullに
+        image_url: imageUrl,
+        category: formData.category,
+        store_name: formData.store_name || "店舗情報なし", // 空の場合のデフォルト値
+        is_published: true,
+        publish_start_date: null,
+        publish_end_date: null,
+      };
 
-      if (error) throw error;
+      console.log("挿入するデータ:", insertData); // デバッグ用
 
-      router.push("/admin/add-menu");
+      const { data, error } = await supabase.from("foods").insert([insertData]);
+
+      if (error) {
+        console.error("Supabaseエラー:", error); // デバッグ用
+        throw error;
+      }
+
+      console.log("保存成功:", data); // デバッグ用
       alert("メニューを追加しました");
+      router.push("/admin/add-menu");
     } catch (error) {
       console.error("Error adding menu:", error);
-      setError("メニューの追加に失敗しました");
+      console.error("Error details:", JSON.stringify(error, null, 2)); // 詳細なエラー情報
+
+      let errorMessage = "メニューの追加に失敗しました";
+
+      if (error && typeof error === "object") {
+        if ("message" in error) {
+          errorMessage += `: ${error.message}`;
+        }
+        if ("details" in error) {
+          errorMessage += ` (詳細: ${error.details})`;
+        }
+        if ("hint" in error) {
+          errorMessage += ` (ヒント: ${error.hint})`;
+        }
+        if ("code" in error) {
+          errorMessage += ` (コード: ${error.code})`;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -101,9 +192,24 @@ export default function AddNewMenu() {
         {" "}
         {/* パディングを調整 */}
         <div className="max-w-2xl mx-auto">
+          <div className="mb-6">
+            <Link
+              href="/admin/add-menu"
+              className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+              <span className="font-medium">戻る</span>
+            </Link>
+          </div>
           <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
             メニューの新規作成
           </h1>
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
 
           <form
             onSubmit={handleSubmit}
@@ -185,6 +291,31 @@ export default function AddNewMenu() {
                 />
               </div>
 
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  店舗名 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.store_name}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      store_name: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                >
+                  <option value="">店舗を選択してください</option>
+                  <option value="店舗情報なし">店舗情報なし</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.name}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* 画像アップロード */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -211,7 +342,7 @@ export default function AddNewMenu() {
                           className="hidden"
                           accept="image/*"
                           onChange={handleImageChange}
-                          required={!imagePreview}
+                          //required={!imagePreview}
                         />
                       </label>
                     </div>

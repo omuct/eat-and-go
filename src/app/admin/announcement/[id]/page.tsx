@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Announcement } from "@/app/_types/announcement";
 import { uploadImage } from "@/app/_utils/fileUproad";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 const Editor = dynamic(() => import("@/app/_components/Editor"), {
   ssr: false,
@@ -81,6 +83,15 @@ export default function EditAnnouncement({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <Link
+          href="/admin/announcement"
+          className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+          <span className="font-medium">戻る</span>
+        </Link>
+      </div>
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8">
         お知らせ編集
       </h1>

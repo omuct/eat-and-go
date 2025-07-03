@@ -2,7 +2,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { List, Users, ShoppingBag, Calendar, Bell } from "lucide-react";
+import {
+  List,
+  Users,
+  ShoppingBag,
+  Calendar,
+  Bell,
+  ClipboardList,
+} from "lucide-react";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -24,7 +31,7 @@ export default function AdminDashboard() {
       title: "注文管理",
       description: "注文履歴・状況の確認",
       icon: <ShoppingBag size={24} />,
-      path: "/admin/orders",
+      path: "/admin/order-history",
     },
     {
       title: "営業カレンダー",
@@ -37,6 +44,12 @@ export default function AdminDashboard() {
       description: "お知らせの作成・編集・公開設定",
       icon: <Bell size={24} />,
       path: "/admin/announcement",
+    },
+    {
+      title: "お店管理",
+      description: "お店の作成・編集・公開設定",
+      icon: <Bell size={24} />,
+      path: "/admin/shops",
     },
   ];
 

@@ -3,8 +3,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Edit, Trash2, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
 interface Food {
   id: number;
@@ -15,6 +16,7 @@ interface Food {
   is_published: boolean;
   publish_start_date: string | null;
   publish_end_date: string | null;
+  store_name: string; // 追加
 }
 
 export default function MenuManagement() {
@@ -95,13 +97,22 @@ export default function MenuManagement() {
     <div className="min-h-screen bg-gray-100">
       <main className="p-4 sm:p-8">
         <div className="flex justify-between items-center mb-6">
+          <div className="mb-6">
+            <Link
+              href="/admin"
+              className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+              <span className="font-medium">管理者画面一覧に戻る</span>
+            </Link>
+          </div>
           <h1 className="text-xl sm:text-2xl font-bold">メニュー管理</h1>
           <button
             onClick={() => router.push("/admin/add-menu/new")}
             className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             <PlusCircle className="mr-2" size={20} />
-            新規メニュー追加
+            新規メニューの追加
           </button>
         </div>
 
@@ -117,6 +128,9 @@ export default function MenuManagement() {
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-bold">{food.name}</h3>
                       <span className="text-gray-600">{food.price}円</span>
+                    </div>
+                    <div className="mb-2 text-sm text-gray-500">
+                      店舗名: {food.store_name}
                     </div>
                     <div className="flex items-center mb-2">
                       <button
@@ -200,6 +214,9 @@ export default function MenuManagement() {
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                       価格
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                      店舗名 {/* 追加 */}
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                       状態
