@@ -1,57 +1,81 @@
 // src/app/admin/users/page.js
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { RefreshCw, Users, Crown, GraduationCap, BookOpen } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import {
+  Users,
+  Crown,
+  ShoppingBag,
+  User,
+  RefreshCw,
+  Edit,
+  Save,
+  X,
+  ArrowLeft,
+  Search,
+  Filter,
+} from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Link from "next/link";
 
-interface User {
+interface UserProfile {
   id: string;
   name: string | null;
-  affiliation_type: string | null;
-  student_year: number | null;
-  student_course: number | null;
-  is_admin: boolean;
   created_at: string;
   updated_at: string;
+  is_admin: boolean;
+  role: "admin" | "store_staff" | "user";
+  phone: string | null;
+  address: string | null;
+}
+
+interface Store {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+}
+
+interface StoreStaff {
+  id: string;
+  user_id: string;
+  store_id: number;
+  store_name?: string;
 }
 
 interface UserStats {
   total: number;
   admins: number;
-  students: number;
-  teachers: number;
-  staff: number;
-  others: number;
+  store_staff: number;
+  users: number;
 }
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const router = useRouter();
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storeStaff, setStoreStaff] = useState<StoreStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [affiliationFilter, setAffiliationFilter] = useState("all");
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    role: "admin" | "store_staff" | "user";
+    store_id: number | null;
+    is_admin: boolean;
+  }>({
+    role: "user",
+    store_id: null,
+    is_admin: false,
+  });
+
   const usersPerPage = 10;
-
-  const supabase = createClientComponentClient();
-
-  // コース名の定数
-  const COURSE_NAMES = [
-    "数理科学科",
-    "物理学科",
-    "化学科",
-    "生物学科",
-    "地球学科",
-    "数学科",
-    "物理学科",
-    "化学科",
-    "生物学科",
-    "地球学科",
-  ];
 
   // ユーザー一覧を取得
   const fetchUsers = async () => {
@@ -64,12 +88,12 @@ export default function AdminUsersPage() {
           `
           id,
           name,
-          affiliation_type,
-          student_year,
-          student_course,
-          is_admin,
           created_at,
-          updated_at
+          updated_at,
+          is_admin,
+          role,
+          phone,
+          address
         `
         )
         .order("created_at", { ascending: false });
@@ -80,8 +104,20 @@ export default function AdminUsersPage() {
         return;
       }
 
-      setUsers(data || []);
-      console.log(`ユーザー一覧取得成功: ${data?.length || 0}件`);
+      // 型安全性を確保するためのデータ変換
+      const typedUsers: UserProfile[] = (data || []).map((user: any) => ({
+        id: String(user.id),
+        name: user.name ? String(user.name) : null,
+        created_at: String(user.created_at || ""),
+        updated_at: String(user.updated_at || ""),
+        is_admin: Boolean(user.is_admin),
+        role: (user.role as "admin" | "store_staff" | "user") || "user",
+        phone: user.phone ? String(user.phone) : null,
+        address: user.address ? String(user.address) : null,
+      }));
+
+      setUsers(typedUsers);
+      console.log(`ユーザー一覧取得成功: ${typedUsers.length}件`);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("ユーザー一覧の取得中にエラーが発生しました");
@@ -91,20 +127,76 @@ export default function AdminUsersPage() {
     }
   };
 
+  // 店舗一覧を取得
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, name, address, phone")
+        .order("name");
+
+      if (error) {
+        console.error("店舗一覧取得エラー:", error);
+        return;
+      }
+
+      // 型安全性を確保するためのデータ変換
+      const typedStores: Store[] = (data || []).map((store: any) => ({
+        id: Number(store.id),
+        name: String(store.name || ""),
+        address: String(store.address || ""),
+        phone: String(store.phone || ""),
+      }));
+
+      setStores(typedStores);
+    } catch (error) {
+      console.error("Error fetching stores:", error);
+    }
+  };
+
+  // 店舗スタッフの割り当て情報を取得
+  const fetchStoreStaff = async () => {
+    try {
+      const { data, error } = await supabase.from("store_staff").select(`
+          id,
+          user_id,
+          store_id,
+          stores (
+            name
+          )
+        `);
+
+      if (error) {
+        console.error("店舗スタッフ取得エラー:", error);
+        return;
+      }
+
+      // 型安全性を確保するためのデータ変換
+      const typedStoreStaff: StoreStaff[] = (data || []).map((staff: any) => ({
+        id: String(staff.id),
+        user_id: String(staff.user_id),
+        store_id: Number(staff.store_id),
+        store_name: staff.stores?.name ? String(staff.stores.name) : undefined,
+      }));
+
+      setStoreStaff(typedStoreStaff);
+    } catch (error) {
+      console.error("Error fetching store staff:", error);
+    }
+  };
+
   // 初回データ取得
   useEffect(() => {
-    fetchUsers();
+    Promise.all([fetchUsers(), fetchStores(), fetchStoreStaff()]);
   }, []);
 
   // フィルタリング処理
   useEffect(() => {
     let filtered = users;
 
-    // 所属フィルター
-    if (affiliationFilter !== "all") {
-      filtered = filtered.filter(
-        (user) => user.affiliation_type === affiliationFilter
-      );
+    // 役割フィルター
+    if (roleFilter !== "all") {
+      filtered = filtered.filter((user) => user.role === roleFilter);
     }
 
     // 検索フィルター
@@ -114,50 +206,34 @@ export default function AdminUsersPage() {
         (user) =>
           (user.name?.toLowerCase() || "").includes(lowerTerm) ||
           user.id.toLowerCase().includes(lowerTerm) ||
-          (user.affiliation_type?.toLowerCase() || "").includes(lowerTerm)
+          (user.role?.toLowerCase() || "").includes(lowerTerm) ||
+          (user.phone?.toLowerCase() || "").includes(lowerTerm) ||
+          (user.address?.toLowerCase() || "").includes(lowerTerm)
       );
     }
 
     setFilteredUsers(filtered);
-    setCurrentPage(1); // フィルター変更時はページを1に戻す
-  }, [users, affiliationFilter, searchTerm]);
+    setCurrentPage(1);
+  }, [users, roleFilter, searchTerm]);
 
   // 統計情報を計算
   const calculateStats = (): UserStats => {
     return {
       total: users.length,
-      admins: users.filter((user) => user.is_admin).length,
-      students: users.filter((user) => user.affiliation_type === "student")
-        .length,
-      teachers: users.filter((user) => user.affiliation_type === "teacher")
-        .length,
-      staff: users.filter((user) => user.affiliation_type === "staff").length,
-      others: users.filter((user) => user.affiliation_type === "other").length,
+      admins: users.filter((user) => user.role === "admin").length,
+      store_staff: users.filter((user) => user.role === "store_staff").length,
+      users: users.filter((user) => user.role === "user").length,
     };
   };
 
-  // 所属タイプを日本語で表示
-  const getAffiliationTypeText = (type: string | null) => {
-    const types: Record<string, string> = {
-      student: "学生",
-      teacher: "教員",
-      staff: "スタッフ",
-      other: "その他",
+  // 役割を日本語で表示
+  const getRoleText = (role: string) => {
+    const roles: Record<string, string> = {
+      admin: "管理者",
+      store_staff: "店舗スタッフ",
+      user: "一般ユーザー",
     };
-    return type ? types[type] || type : "未設定";
-  };
-
-  // 学年を表示
-  const getStudentYearText = (year: number | null) => {
-    return year ? `${year}年生` : "-";
-  };
-
-  // コース名を表示
-  const getCourseText = (courseIndex: number | null) => {
-    if (!courseIndex || courseIndex < 1 || courseIndex > COURSE_NAMES.length) {
-      return "-";
-    }
-    return COURSE_NAMES[courseIndex - 1];
+    return roles[role] || role;
   };
 
   // 日付フォーマット
@@ -171,15 +247,75 @@ export default function AdminUsersPage() {
     });
   };
 
+  // 編集開始
+  const handleEdit = (user: UserProfile) => {
+    setEditingUser(user.id);
+    setEditForm({
+      role: user.role,
+      store_id: storeStaff.find((s) => s.user_id === user.id)?.store_id || null,
+      is_admin: user.is_admin,
+    });
+  };
+
+  // 編集保存
+  const handleSave = async (userId: string) => {
+    try {
+      // プロフィール更新
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          role: editForm.role,
+          is_admin: editForm.role === "admin" ? true : editForm.is_admin,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (profileError) throw profileError;
+
+      // 店舗スタッフの場合の店舗割り当て処理
+      if (editForm.role === "store_staff" && editForm.store_id) {
+        // 既存の割り当てを削除
+        await supabase.from("store_staff").delete().eq("user_id", userId);
+
+        // 新しい割り当てを追加
+        const { error: staffError } = await supabase
+          .from("store_staff")
+          .insert({
+            user_id: userId,
+            store_id: editForm.store_id,
+          });
+
+        if (staffError) throw staffError;
+      } else {
+        // 店舗スタッフでない場合は割り当てを削除
+        await supabase.from("store_staff").delete().eq("user_id", userId);
+      }
+
+      toast.success("ユーザー情報を更新しました");
+      setEditingUser(null);
+
+      // データを再取得
+      await Promise.all([fetchUsers(), fetchStoreStaff()]);
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("更新に失敗しました");
+    }
+  };
+
+  // 編集キャンセル
+  const handleCancel = () => {
+    setEditingUser(null);
+  };
+
   // 更新ボタンのハンドラー
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchUsers();
+    Promise.all([fetchUsers(), fetchStores(), fetchStoreStaff()]);
   };
 
   // フィルターリセット
   const resetFilters = () => {
-    setAffiliationFilter("all");
+    setRoleFilter("all");
     setSearchTerm("");
   };
 
@@ -192,6 +328,15 @@ export default function AdminUsersPage() {
 
   // ページ数を計算
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  // 指定ユーザーの所属店舗を取得
+  const getUserStore = (userId: string) => {
+    const staffInfo = storeStaff.find((s) => s.user_id === userId);
+    if (!staffInfo) return null;
+
+    const store = stores.find((s) => s.id === staffInfo.store_id);
+    return store;
+  };
 
   const stats = calculateStats();
 
@@ -212,28 +357,38 @@ export default function AdminUsersPage() {
 
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center">
-              <Users className="mr-2" />
-              ユーザー管理
-            </h1>
-            <p className="text-gray-600 mt-1">登録ユーザー一覧・統計情報</p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            disabled={isRefreshing}
+        <div className="mb-6">
+          <Link
+            href="/admin"
+            className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group mb-4"
           >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            更新
-          </button>
+            <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+            <span className="font-medium">管理者画面一覧に戻る</span>
+          </Link>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center">
+                <Users className="mr-2" />
+                ユーザー管理
+              </h1>
+              <p className="text-gray-600 mt-1">登録ユーザー一覧・役割管理</p>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={isRefreshing}
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              更新
+            </button>
+          </div>
         </div>
 
         {/* 統計カード */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <Users className="w-8 h-8 text-blue-500 mr-2" />
@@ -260,48 +415,24 @@ export default function AdminUsersPage() {
 
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <GraduationCap className="w-8 h-8 text-purple-500 mr-2" />
-              <div>
-                <div className="text-2xl font-bold text-purple-600">
-                  {stats.students}
-                </div>
-                <div className="text-sm text-gray-600">学生</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <BookOpen className="w-8 h-8 text-green-500 mr-2" />
+              <ShoppingBag className="w-8 h-8 text-green-500 mr-2" />
               <div>
                 <div className="text-2xl font-bold text-green-600">
-                  {stats.teachers}
+                  {stats.store_staff}
                 </div>
-                <div className="text-sm text-gray-600">教員</div>
+                <div className="text-sm text-gray-600">店舗スタッフ</div>
               </div>
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <Users className="w-8 h-8 text-orange-500 mr-2" />
-              <div>
-                <div className="text-2xl font-bold text-orange-600">
-                  {stats.staff}
-                </div>
-                <div className="text-sm text-gray-600">スタッフ</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <Users className="w-8 h-8 text-gray-500 mr-2" />
+              <User className="w-8 h-8 text-gray-500 mr-2" />
               <div>
                 <div className="text-2xl font-bold text-gray-600">
-                  {stats.others}
+                  {stats.users}
                 </div>
-                <div className="text-sm text-gray-600">その他</div>
+                <div className="text-sm text-gray-600">一般ユーザー</div>
               </div>
             </div>
           </div>
@@ -309,34 +440,35 @@ export default function AdminUsersPage() {
 
         {/* フィルター部分 */}
         <div className="bg-white rounded-lg shadow mb-6 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Search className="w-4 h-4 inline mr-1" />
                 検索
               </label>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="名前、ID、所属で検索"
+                placeholder="名前、ID、役割、連絡先で検索"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                所属フィルター
+                <Filter className="w-4 h-4 inline mr-1" />
+                役割フィルター
               </label>
               <select
-                value={affiliationFilter}
-                onChange={(e) => setAffiliationFilter(e.target.value)}
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">すべて</option>
-                <option value="student">学生</option>
-                <option value="teacher">教員</option>
-                <option value="staff">スタッフ</option>
-                <option value="other">その他</option>
+                <option value="admin">管理者</option>
+                <option value="store_staff">店舗スタッフ</option>
+                <option value="user">一般ユーザー</option>
               </select>
             </div>
 
@@ -361,82 +493,143 @@ export default function AdminUsersPage() {
                     ユーザー情報
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    所属・学年
+                    役割
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    コース
+                    所属店舗
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    権限
+                    連絡先
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     登録日
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    更新日
+                    操作
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getCurrentUsers().length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-12 text-center text-gray-500"
-                    >
-                      {searchTerm || affiliationFilter !== "all"
-                        ? "検索条件に一致するユーザーが見つかりませんでした"
-                        : "ユーザーが見つかりませんでした"}
-                    </td>
-                  </tr>
-                ) : (
-                  getCurrentUsers().map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                {getCurrentUsers().map((user) => {
+                  const userStore = getUserStore(user.id);
+                  const isEditing = editingUser === user.id;
+
+                  return (
+                    <tr key={user.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {user.name || "名前未設定"}
+                            {user.name || "未設定"}
                           </div>
-                          <div className="text-sm text-gray-500 font-mono">
-                            ID: {user.id.slice(0, 8)}...
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {getAffiliationTypeText(user.affiliation_type)}
-                        </div>
-                        {user.affiliation_type === "student" && (
                           <div className="text-sm text-gray-500">
-                            {getStudentYearText(user.student_year)}
+                            ID: {user.id.substring(0, 8)}...
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {getCourseText(user.student_course)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {user.is_admin ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            👑 管理者
-                          </span>
+                        {isEditing ? (
+                          <select
+                            value={editForm.role}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                role: e.target.value as
+                                  | "admin"
+                                  | "store_staff"
+                                  | "user",
+                              })
+                            }
+                            className="text-sm border rounded px-2 py-1"
+                          >
+                            <option value="user">一般ユーザー</option>
+                            <option value="store_staff">店舗スタッフ</option>
+                            <option value="admin">管理者</option>
+                          </select>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            👤 一般ユーザー
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.role === "admin"
+                                ? "bg-red-100 text-red-800"
+                                : user.role === "store_staff"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {getRoleText(user.role)}
                           </span>
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {isEditing && editForm.role === "store_staff" ? (
+                          <select
+                            value={editForm.store_id || ""}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                store_id: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              })
+                            }
+                            className="text-sm border rounded px-2 py-1"
+                          >
+                            <option value="">店舗を選択</option>
+                            {stores.map((store) => (
+                              <option key={store.id} value={store.id}>
+                                {store.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : userStore ? (
+                          <div>
+                            <div className="font-medium">{userStore.name}</div>
+                            <div className="text-gray-500">
+                              {userStore.address}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div>
+                          <div>{user.phone || "-"}</div>
+                          <div className="text-gray-500">
+                            {user.address || "-"}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(user.created_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(user.updated_at)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {isEditing ? (
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleSave(user.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              <Save className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={handleCancel}
+                              className="text-gray-600 hover:text-gray-900"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleEdit(user)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
                       </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -469,10 +662,7 @@ export default function AdminUsersPage() {
                   <span className="font-medium">{filteredUsers.length}</span>{" "}
                   件中{" "}
                   <span className="font-medium">
-                    {Math.min(
-                      (currentPage - 1) * usersPerPage + 1,
-                      filteredUsers.length
-                    )}
+                    {(currentPage - 1) * usersPerPage + 1}
                   </span>{" "}
                   -{" "}
                   <span className="font-medium">
@@ -490,34 +680,32 @@ export default function AdminUsersPage() {
                   >
                     前へ
                   </button>
-
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                          currentPage === pageNum
-                            ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
-                            : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) =>
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - currentPage) <= 2
+                    )
+                    .map((page, index, array) => (
+                      <div key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                            ...
+                          </span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            currentPage === page
+                              ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                              : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </div>
+                    ))}
                   <button
                     onClick={() =>
                       setCurrentPage(Math.min(totalPages, currentPage + 1))

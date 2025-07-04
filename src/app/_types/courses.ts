@@ -1,23 +1,30 @@
-export type AffiliationType = "教職員" | "学生" | "その他";
-
-export const COURSE_NAMES = [
-  "機械システムコース",
-  "メカトロニクスコース",
-  "電子情報コース",
-  "環境物質化学コース",
-  "都市環境コース",
-  "エネルギー機械コース",
-  "プロダクトデザインコース",
-  "エレクトロニクスコース",
-  "知能情報コース",
-] as const;
-
-export type CourseName = (typeof COURSE_NAMES)[number];
-
 export interface UserProfile {
   id: string;
   name: string | null;
-  affiliation_type: AffiliationType | null;
-  student_year?: number | null;
-  student_course?: number | null;
+  created_at: string;
+  updated_at: string;
+  is_admin: boolean;
+  role: "admin" | "store_staff" | "user";
+  phone: string | null;
+  address: string | null;
 }
+
+export interface Store {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+  opening_hours: string;
+  description?: string;
+  image_url?: string;
+  created_at?: string;
+}
+
+export interface StoreStaff {
+  id: string;
+  user_id: string;
+  store_id: number;
+  store_name?: string;
+}
+
+export type UserRole = "admin" | "store_staff" | "user";

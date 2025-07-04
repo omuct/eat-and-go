@@ -1,15 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
-import { Pencil, Save, X, AlertTriangle, Mail } from "lucide-react";
 import {
-  UserProfile,
-  AffiliationType,
-  COURSE_NAMES,
-} from "@/app/_types/courses";
+  Pencil,
+  Save,
+  X,
+  ArrowLeft,
+  User,
+  Mail,
+  Shield,
+  Phone,
+  MapPin,
+  Trash2,
+  Lock,
+} from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import Link from "next/link";
+
+interface UserProfile {
+  id: string;
+  name: string | null;
+  role: "admin" | "store_staff" | "user";
+  phone: string | null;
+  address: string | null;
+}
 
 interface AccountPageProps {
   params: {
@@ -18,51 +36,52 @@ interface AccountPageProps {
 }
 
 export default function AccountPage({ params }: AccountPageProps) {
-  const [provider, setProvider] = useState<string | null>(null);
   const router = useRouter();
   const [email, setEmail] = useState<string>("");
+  const [provider, setProvider] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile>({
     id: params.id,
     name: null,
-    affiliation_type: null,
-    student_year: null,
-    student_course: null,
+    role: "user",
+    phone: null,
+    address: null,
   });
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     id: params.id,
     name: null,
-    affiliation_type: null,
-    student_year: null,
-    student_course: null,
+    role: "user",
+    phone: null,
+    address: null,
   });
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const isGoogleAccount = provider === "google";
-  const isXAccount = provider === "twitter";
-  const isSocialAccount = isGoogleAccount || isXAccount;
+  // パスワード変更関連
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  // アカウント削除関連
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
+
+  const isSocialAccount = provider === "google" || provider === "twitter";
 
   const fetchProfile = async () => {
     try {
+      setLoading(true);
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (sessionError) {
-        console.error("Session error:", sessionError);
-        throw new Error("セッションの取得に失敗しました");
-      }
-
-      if (!session) {
+      if (sessionError || !session) {
         router.push("/login");
         return;
       }
@@ -72,141 +91,122 @@ export default function AccountPage({ params }: AccountPageProps) {
         return;
       }
 
-      const appMetadata = session.user.app_metadata;
-      const provider = appMetadata.provider;
-      setProvider(provider ?? null);
       setEmail(session.user.email || "");
+
+      // プロバイダー情報を取得
+      const appMetadata = session.user.app_metadata;
+      setProvider(appMetadata.provider ?? null);
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, name, role, phone, address")
         .eq("id", session.user.id)
         .single();
 
       if (profileError) {
         if (profileError.code === "PGRST116") {
+          // プロフィールが存在しない場合は新規作成
           const newProfile = {
             id: session.user.id,
             name: null,
-            affiliation_type: null,
-            student_year: null,
-            student_course: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            role: "user" as const,
+            phone: null,
+            address: null,
           };
 
           const { data: insertedProfile, error: insertError } = await supabase
             .from("profiles")
             .insert(newProfile)
-            .select()
+            .select("id, name, role, phone, address")
             .single();
 
           if (insertError) {
-            console.error("Profile creation error:", insertError);
             throw new Error("プロフィールの作成に失敗しました");
           }
 
-          setProfile(insertedProfile);
-          setEditedProfile(insertedProfile);
+          const typedProfile: UserProfile = {
+            id: String(insertedProfile.id),
+            name: insertedProfile.name ? String(insertedProfile.name) : null,
+            role:
+              (insertedProfile.role as "admin" | "store_staff" | "user") ||
+              "user",
+            phone: insertedProfile.phone ? String(insertedProfile.phone) : null,
+            address: insertedProfile.address
+              ? String(insertedProfile.address)
+              : null,
+          };
+
+          setProfile(typedProfile);
+          setEditedProfile(typedProfile);
           return;
         }
-
-        console.error("Profile fetch error:", profileError);
         throw new Error("プロフィールの取得に失敗しました");
       }
 
       if (profileData) {
-        setProfile(profileData);
-        setEditedProfile(profileData);
+        const typedProfile: UserProfile = {
+          id: String(profileData.id),
+          name: profileData.name ? String(profileData.name) : null,
+          role:
+            (profileData.role as "admin" | "store_staff" | "user") || "user",
+          phone: profileData.phone ? String(profileData.phone) : null,
+          address: profileData.address ? String(profileData.address) : null,
+        };
+
+        setProfile(typedProfile);
+        setEditedProfile(typedProfile);
       }
     } catch (error: any) {
       console.error("Error in fetchProfile:", error);
       setErrorMessage(error.message || "プロフィールの取得に失敗しました");
+      toast.error(error.message || "プロフィールの取得に失敗しました");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchProfile();
-
-    const channel = supabase
-      .channel(`profile:${params.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${params.id}`,
-        },
-        (payload) => {
-          console.log("Profile change received:", payload);
-          if (payload.new) {
-            setProfile(payload.new as UserProfile);
-            if (!isEditing) {
-              setEditedProfile(payload.new as UserProfile);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [params.id, router, isEditing]);
+  }, [params.id, router]);
 
   const handleSave = async () => {
     try {
       if (!editedProfile.name?.trim()) {
         setErrorMessage("名前を入力してください");
+        toast.error("名前を入力してください");
         return;
-      }
-
-      if (!editedProfile.affiliation_type) {
-        setErrorMessage("所属区分を選択してください");
-        return;
-      }
-
-      if (editedProfile.affiliation_type === "学生") {
-        if (!editedProfile.student_year) {
-          setErrorMessage("学年を選択してください");
-          return;
-        }
-        if (!editedProfile.student_course) {
-          setErrorMessage("コースを選択してください");
-          return;
-        }
       }
 
       const { data, error } = await supabase
         .from("profiles")
         .update({
           name: editedProfile.name.trim(),
-          affiliation_type: editedProfile.affiliation_type,
-          student_year:
-            editedProfile.affiliation_type === "学生"
-              ? editedProfile.student_year
-              : null,
-          student_course:
-            editedProfile.affiliation_type === "学生"
-              ? editedProfile.student_course
-              : null,
-          updated_at: new Date().toISOString(),
+          phone: editedProfile.phone?.trim() || null,
+          address: editedProfile.address?.trim() || null,
         })
         .eq("id", params.id)
-        .select()
+        .select("id, name, role, phone, address")
         .single();
 
       if (error) throw error;
 
-      setProfile(data);
-      setEditedProfile(data);
+      const typedProfile: UserProfile = {
+        id: String(data.id),
+        name: data.name ? String(data.name) : null,
+        role: (data.role as "admin" | "store_staff" | "user") || "user",
+        phone: data.phone ? String(data.phone) : null,
+        address: data.address ? String(data.address) : null,
+      };
+
+      setProfile(typedProfile);
+      setEditedProfile(typedProfile);
       setIsEditing(false);
       setErrorMessage("");
-      alert("プロフィールを更新しました");
+      toast.success("プロフィールを更新しました");
     } catch (error: any) {
       console.error("Save error:", error);
       setErrorMessage(error.message || "更新中にエラーが発生しました");
+      toast.error(error.message || "更新中にエラーが発生しました");
     }
   };
 
@@ -221,91 +221,147 @@ export default function AccountPage({ params }: AccountPageProps) {
     setErrorMessage("");
   };
 
-  const handleUpdateEmail = async () => {
+  // パスワード変更
+  const handlePasswordChange = async () => {
     try {
-      if (!newEmail.trim()) {
-        setErrorMessage("新しいメールアドレスを入力してください");
+      if (!passwordForm.newPassword.trim()) {
+        toast.error("新しいパスワードを入力してください");
+        return;
+      }
+
+      if (passwordForm.newPassword.length < 6) {
+        toast.error("パスワードは6文字以上で入力してください");
+        return;
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        toast.error("パスワードが一致しません");
         return;
       }
 
       const { error } = await supabase.auth.updateUser({
-        email: newEmail.trim(),
+        password: passwordForm.newPassword,
       });
+
       if (error) throw error;
 
-      alert(
-        "確認メールを送信しました。メールの指示に従って更新を完了してください。"
-      );
-      setIsUpdatingEmail(false);
-      setNewEmail("");
-      setErrorMessage("");
+      toast.success("パスワードを変更しました");
+      setIsChangingPassword(false);
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
     } catch (error: any) {
-      console.error("Email update error:", error);
-      setErrorMessage(
-        error.message || "メールアドレスの更新中にエラーが発生しました"
-      );
+      console.error("Password change error:", error);
+      toast.error(error.message || "パスワードの変更に失敗しました");
     }
   };
 
-  const handleUpdatePassword = async () => {
+  // アカウント削除
+  const handleAccountDelete = async () => {
     try {
-      if (!newPassword.trim()) {
-        setErrorMessage("新しいパスワードを入力してください");
-        return;
+      if (isSocialAccount) {
+        // ソーシャルアカウントの場合はプロフィールのみ削除
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", params.id);
+
+        if (profileError) throw profileError;
+
+        await supabase.auth.signOut();
+        toast.success("アカウントを削除しました");
+        router.push("/login");
+      } else {
+        // 通常のアカウントの場合
+        if (!deleteConfirmPassword.trim()) {
+          toast.error("パスワードを入力してください");
+          return;
+        }
+
+        // パスワードの確認のため再認証
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: deleteConfirmPassword,
+        });
+
+        if (signInError) {
+          toast.error("パスワードが正しくありません");
+          return;
+        }
+
+        // プロフィール削除
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", params.id);
+
+        if (profileError) throw profileError;
+
+        // ユーザーアカウント削除は管理者側で処理する必要がある
+        // 現在はプロフィールのみ削除してサインアウト
+        await supabase.auth.signOut();
+        toast.success("アカウントを削除しました");
+        router.push("/login");
       }
-
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword.trim(),
-      });
-      if (error) throw error;
-
-      alert("パスワードが更新されました");
-      setIsUpdatingPassword(false);
-      setCurrentPassword("");
-      setNewPassword("");
-      setErrorMessage("");
-    } catch (error: any) {
-      console.error("Password update error:", error);
-      setErrorMessage(
-        error.message || "パスワードの更新中にエラーが発生しました"
-      );
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    try {
-      const confirmed = window.confirm(
-        "本当にアカウントを削除しますか？この操作は取り消せません。"
-      );
-      if (!confirmed) return;
-
-      // Note: This endpoint might need proper server-side implementation
-      const { error } = await supabase.functions.invoke("delete-user", {
-        body: { userId: params.id },
-      });
-
-      if (error) throw error;
-
-      await supabase.auth.signOut();
-      router.push("/login");
     } catch (error: any) {
       console.error("Account deletion error:", error);
-      setErrorMessage(
-        error.message || "アカウントの削除中にエラーが発生しました"
-      );
+      toast.error(error.message || "アカウントの削除に失敗しました");
     }
   };
+
+  // 役割の日本語表示
+  const getRoleText = (role: string) => {
+    const roles: Record<string, string> = {
+      admin: "管理者",
+      store_staff: "店舗スタッフ",
+      user: "一般ユーザー",
+    };
+    return roles[role] || role;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">アカウント情報を読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="max-w-2xl mx-auto p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">アカウント設定</h1>
+      <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
+
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        {/* パンくずナビ */}
+        <div className="mb-6">
+          <Link
+            href="/user"
+            className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+            <span className="font-medium">マイページに戻る</span>
+          </Link>
+        </div>
+
+        {/* ヘッダー */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center">
+              <User className="w-8 h-8 mr-3 text-blue-600" />
+              アカウント設定
+            </h1>
+            <p className="text-gray-600 mt-1">個人情報の確認・編集</p>
+          </div>
           {!isEditing ? (
             <button
               onClick={handleEdit}
-              className="flex items-center text-blue-600 hover:text-blue-700"
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Pencil size={20} className="mr-2" />
               編集
@@ -313,303 +369,316 @@ export default function AccountPage({ params }: AccountPageProps) {
           ) : (
             <div className="flex space-x-2">
               <button
-                onClick={handleCancel}
-                className="flex items-center text-gray-600 hover:text-gray-700"
-              >
-                <X size={20} className="mr-2" />
-                キャンセル
-              </button>
-              <button
                 onClick={handleSave}
-                className="flex items-center text-green-600 hover:text-green-700"
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 <Save size={20} className="mr-2" />
                 保存
+              </button>
+              <button
+                onClick={handleCancel}
+                className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                <X size={20} className="mr-2" />
+                キャンセル
               </button>
             </div>
           )}
         </div>
 
         {errorMessage && (
-          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-md">
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
             {errorMessage}
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">メールアドレス設定</h2>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              現在のメールアドレス
-            </label>
-            <div className="flex items-center">
-              <input
-                type="email"
-                value={email}
-                disabled
-                className="w-full p-2 border rounded-md bg-gray-50"
-              />
-              {isGoogleAccount && (
-                <div className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md flex items-center">
-                  <Mail size={16} className="mr-1" />
-                  Google
-                </div>
-              )}
-              {isXAccount && (
-                <div className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md flex items-center">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="w-4 h-4 mr-1"
-                    fill="currentColor"
-                  >
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                  X
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* メインコンテンツ */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 基本情報 */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-6 flex items-center">
+                <User className="w-5 h-5 mr-2 text-gray-600" />
+                基本情報
+              </h2>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              名前
-            </label>
-            {isEditing ? (
-              <input
-                type="text"
-                value={editedProfile.name || ""}
-                onChange={(e) =>
-                  setEditedProfile({ ...editedProfile, name: e.target.value })
-                }
-                className="w-full p-2 border rounded-md"
-              />
-            ) : (
-              <div className="w-full p-2 border rounded-md bg-gray-50">
-                {profile.name || "未設定"}
+              <div className="space-y-6">
+                {/* 名前 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    名前 <span className="text-red-500">*</span>
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedProfile.name || ""}
+                      onChange={(e) =>
+                        setEditedProfile({
+                          ...editedProfile,
+                          name: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="お名前を入力してください"
+                    />
+                  ) : (
+                    <p className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900">
+                      {profile.name || "未設定"}
+                    </p>
+                  )}
+                </div>
+
+                {/* メールアドレス */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Mail className="w-4 h-4 inline mr-1" />
+                    メールアドレス
+                  </label>
+                  <p className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-600">
+                    {email || "未設定"}
+                  </p>
+                  {isSocialAccount && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      ソーシャルアカウントでログインしているため変更できません
+                    </p>
+                  )}
+                </div>
+
+                {/* 役割 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    役割
+                  </label>
+                  <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <span
+                      className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+                        profile.role === "admin"
+                          ? "bg-red-100 text-red-800"
+                          : profile.role === "store_staff"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {getRoleText(profile.role)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 電話番号 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Phone className="w-4 h-4 inline mr-1" />
+                    電話番号
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="tel"
+                      value={editedProfile.phone || ""}
+                      onChange={(e) =>
+                        setEditedProfile({
+                          ...editedProfile,
+                          phone: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="090-1234-5678"
+                    />
+                  ) : (
+                    <p className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900">
+                      {profile.phone || "未設定"}
+                    </p>
+                  )}
+                </div>
+
+                {/* 住所 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <MapPin className="w-4 h-4 inline mr-1" />
+                    住所
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedProfile.address || ""}
+                      onChange={(e) =>
+                        setEditedProfile({
+                          ...editedProfile,
+                          address: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="住所を入力してください"
+                    />
+                  ) : (
+                    <p className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900">
+                      {profile.address || "未設定"}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* パスワード変更 */}
+            {!isSocialAccount && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold mb-6 flex items-center">
+                  <Shield className="w-5 h-5 mr-2 text-gray-600" />
+                  パスワード変更
+                </h2>
+
+                {!isChangingPassword ? (
+                  <button
+                    onClick={() => setIsChangingPassword(true)}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Lock className="w-4 h-4 mr-2" />
+                    パスワードを変更
+                  </button>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        新しいパスワード
+                      </label>
+                      <input
+                        type="password"
+                        value={passwordForm.newPassword}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            newPassword: e.target.value,
+                          })
+                        }
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="6文字以上で入力してください"
+                        minLength={6}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        パスワード確認
+                      </label>
+                      <input
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="同じパスワードを再入力してください"
+                      />
+                    </div>
+
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={handlePasswordChange}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        変更する
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsChangingPassword(false);
+                          setPasswordForm({
+                            currentPassword: "",
+                            newPassword: "",
+                            confirmPassword: "",
+                          });
+                        }}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              所属区分
-            </label>
-            {isEditing ? (
-              <select
-                value={editedProfile.affiliation_type || ""}
-                onChange={(e) => {
-                  const value = e.target.value as AffiliationType;
-                  setEditedProfile({
-                    ...editedProfile,
-                    affiliation_type: value,
-                    student_year:
-                      value === "学生" ? editedProfile.student_year : null,
-                    student_course:
-                      value === "学生" ? editedProfile.student_course : null,
-                  });
-                }}
-                className="w-full p-2 border rounded-md"
-              >
-                <option value="">選択してください</option>
-                <option value="教職員">教職員</option>
-                <option value="学生">学生</option>
-                <option value="その他">その他</option>
-              </select>
-            ) : (
-              <div className="w-full p-2 border rounded-md bg-gray-50">
-                {profile.affiliation_type || "未設定"}
-              </div>
-            )}
-          </div>
+          {/* サイドバー */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* 危険な操作 */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center">
+                <Trash2 className="w-5 h-5 mr-2" />
+                危険な操作
+              </h3>
 
-          {editedProfile.affiliation_type === "学生" && (
-            <>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  学年
-                </label>
-                {isEditing ? (
-                  <select
-                    value={editedProfile.student_year || ""}
-                    onChange={(e) =>
-                      setEditedProfile({
-                        ...editedProfile,
-                        student_year: parseInt(e.target.value),
-                      })
-                    }
-                    className="w-full p-2 border rounded-md"
-                  >
-                    <option value="">選択してください</option>
-                    {[1, 2, 3, 4, 5].map((year) => (
-                      <option key={year} value={year}>
-                        {year}年生
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="w-full p-2 border rounded-md bg-gray-50">
-                    {profile.student_year
-                      ? `${profile.student_year}年生`
-                      : "未設定"}
-                  </div>
-                )}
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  コース
-                </label>
-                {isEditing ? (
-                  <select
-                    value={editedProfile.student_course || ""}
-                    onChange={(e) =>
-                      setEditedProfile({
-                        ...editedProfile,
-                        student_course: parseInt(e.target.value),
-                      })
-                    }
-                    className="w-full p-2 border rounded-md"
-                  >
-                    <option value="">選択してください</option>
-                    {COURSE_NAMES.map((name, index) => (
-                      <option key={index} value={index + 1}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="w-full p-2 border rounded-md bg-gray-50">
-                    {profile.student_course
-                      ? COURSE_NAMES[profile.student_course - 1]
-                      : "未設定"}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {!isSocialAccount && (
-            <button
-              onClick={() => setIsUpdatingEmail(!isUpdatingEmail)}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              メールアドレスを変更する
-            </button>
-          )}
-
-          {isUpdatingEmail && !isSocialAccount && (
-            <div className="mt-4">
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="新しいメールアドレス"
-                className="w-full p-2 border rounded-md mb-2"
-              />
-              <div className="flex justify-end space-x-2">
+              {!showDeleteConfirm ? (
                 <button
-                  onClick={() => setIsUpdatingEmail(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
                 >
-                  キャンセル
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  アカウントを削除
                 </button>
-                <button
-                  onClick={handleUpdateEmail}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  更新
-                </button>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <p className="text-sm text-red-700 mb-3 font-medium">
+                      ⚠️ この操作は取り消せません
+                    </p>
+                    <p className="text-sm text-red-600 mb-3">
+                      アカウントとすべてのデータが完全に削除されます。
+                    </p>
+
+                    {!isSocialAccount && (
+                      <div className="mb-3">
+                        <label className="block text-sm font-medium text-red-700 mb-2">
+                          確認のためパスワードを入力してください
+                        </label>
+                        <input
+                          type="password"
+                          value={deleteConfirmPassword}
+                          onChange={(e) =>
+                            setDeleteConfirmPassword(e.target.value)
+                          }
+                          className="w-full p-2 border border-red-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="パスワード"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleAccountDelete}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                      >
+                        削除する
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setDeleteConfirmPassword("");
+                        }}
+                        className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors"
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
-        {!isSocialAccount && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">パスワード設定</h2>
-            <button
-              onClick={() => setIsUpdatingPassword(!isUpdatingPassword)}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              パスワードを変更する
-            </button>
-
-            {isUpdatingPassword && (
-              <div className="mt-4">
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="現在のパスワード"
-                  className="w-full p-2 border rounded-md mb-2"
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="新しいパスワード"
-                  className="w-full p-2 border rounded-md mb-2"
-                />
-                <div className="flex justify-end space-x-2">
-                  <button
-                    onClick={() => setIsUpdatingPassword(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={handleUpdatePassword}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    更新
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="mb-4">
-            {isSocialAccount && (
-              <p className="text-gray-600 mb-4">
-                ※{isGoogleAccount ? "Google" : "X"}
-                アカウントでログインしている場合、 アカウントの削除は
-                {isGoogleAccount ? "Google" : "X"}アカウントの
-                設定から行ってください。
-              </p>
-            )}
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center text-red-600 hover:text-red-700"
-              disabled={isSocialAccount}
-            >
-              <AlertTriangle size={20} className="mr-2" />
-              アカウントを削除する
-            </button>
-          </div>
-
-          {showDeleteConfirm && !isSocialAccount && (
-            <div className="mt-4 p-4 bg-red-50 rounded-md">
-              <p className="text-red-700 mb-4">
-                アカウントを削除すると、すべてのデータが完全に削除されます。この操作は取り消せません。
-              </p>
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  キャンセル
-                </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                >
-                  削除する
-                </button>
-              </div>
-            </div>
-          )}
+        {/* 注意事項 */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-blue-800 mb-2">
+            ご利用について
+          </h3>
+          <ul className="text-blue-700 text-sm space-y-1">
+            <li>• アカウント情報は正確に入力してください</li>
+            <li>• パスワードは定期的に変更することをお勧めします</li>
+            <li>• アカウント削除は慎重に行ってください</li>
+            <li>• ご不明な点がございましたら管理者までお問い合わせください</li>
+          </ul>
         </div>
       </div>
     </div>
