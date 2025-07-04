@@ -124,7 +124,19 @@ export default function EditMenuPage({
 
       if (error) throw error;
 
-      router.push("/admin/add-menu");
+      // 店舗IDを取得して適切な戻り先を決定
+      const { data: storeData } = await supabase
+        .from("stores")
+        .select("id")
+        .eq("name", formData.store_name)
+        .single();
+
+      if (storeData) {
+        router.push(`/admin/add-menu/store/${storeData.id}`);
+      } else {
+        router.push("/admin/add-menu");
+      }
+
       alert("メニューを更新しました");
     } catch (error) {
       console.error("Error updating menu:", error);

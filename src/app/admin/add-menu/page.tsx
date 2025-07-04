@@ -3,314 +3,251 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Edit, Trash2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { ArrowLeft, Store, PlusCircle, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-interface Food {
+interface Store {
   id: number;
   name: string;
-  price: number;
-  description: string;
-  image_url: string;
-  is_published: boolean;
-  publish_start_date: string | null;
-  publish_end_date: string | null;
-  store_name: string; // 追加
+  address: string;
+  phone: string;
+  opening_hours: string;
+  description?: string;
+  image_url?: string;
 }
 
-export default function MenuManagement() {
+interface MenuStats {
+  store_id: number;
+  store_name: string;
+  total_menus: number;
+  published_menus: number;
+  unpublished_menus: number;
+}
+
+export default function MenuManagementStorePage() {
   const router = useRouter();
-  const [foods, setFoods] = useState<Food[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [menuStats, setMenuStats] = useState<MenuStats[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchFoods = async () => {
-    const { data, error } = await supabase
-      .from("foods")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("*")
+        .order("name");
 
-    if (error) {
-      console.error("Error fetching foods:", error);
-      return;
+      if (error) throw error;
+
+      const storesData = (data || []).map((store: any) => ({
+        id: Number(store.id),
+        name: String(store.store_name || store.name || ""),
+        address: String(store.address || ""),
+        phone: String(store.phone || ""),
+        opening_hours: String(store.opening_hours || ""),
+        description: store.description ? String(store.description) : undefined,
+        image_url: store.image_url ? String(store.image_url) : undefined,
+      }));
+
+      setStores(storesData);
+      await fetchMenuStats(storesData);
+    } catch (error) {
+      console.error("Error fetching stores:", error);
+      toast.error("店舗情報の取得に失敗しました");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setFoods(data || []);
-    setLoading(false);
+  const fetchMenuStats = async (storesData: Store[]) => {
+    try {
+      const stats: MenuStats[] = [];
+
+      // 各店舗のメニュー統計を取得
+      for (const store of storesData) {
+        // 総メニュー数
+        const { count: totalCount, error: totalError } = await supabase
+          .from("foods")
+          .select("*", { count: "exact", head: true })
+          .eq("store_name", store.name);
+
+        // 公開中メニュー数
+        const { count: publishedCount, error: publishedError } = await supabase
+          .from("foods")
+          .select("*", { count: "exact", head: true })
+          .eq("store_name", store.name)
+          .eq("is_published", true);
+
+        // 非公開メニュー数
+        const { count: unpublishedCount, error: unpublishedError } =
+          await supabase
+            .from("foods")
+            .select("*", { count: "exact", head: true })
+            .eq("store_name", store.name)
+            .eq("is_published", false);
+
+        if (totalError || publishedError || unpublishedError) {
+          console.error(`Error fetching stats for store ${store.name}`);
+          continue;
+        }
+
+        stats.push({
+          store_id: store.id,
+          store_name: store.name,
+          total_menus: totalCount || 0,
+          published_menus: publishedCount || 0,
+          unpublished_menus: unpublishedCount || 0,
+        });
+      }
+
+      setMenuStats(stats);
+    } catch (error) {
+      console.error("Error fetching menu stats:", error);
+    }
   };
 
   useEffect(() => {
-    fetchFoods();
+    fetchStores();
   }, []);
 
-  const togglePublish = async (food: Food) => {
-    try {
-      const { error } = await supabase
-        .from("foods")
-        .update({ is_published: !food.is_published })
-        .eq("id", food.id);
-
-      if (error) throw error;
-      fetchFoods();
-    } catch (error) {
-      console.error("Error toggling publish status:", error);
-      alert("状態の更新に失敗しました");
-    }
+  const getStoreStats = (storeId: number) => {
+    return (
+      menuStats.find((stat) => stat.store_id === storeId) || {
+        store_id: storeId,
+        store_name: "",
+        total_menus: 0,
+        published_menus: 0,
+        unpublished_menus: 0,
+      }
+    );
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("本当に削除しますか？")) return;
-
-    try {
-      const { error } = await supabase.from("foods").delete().eq("id", id);
-      if (error) throw error;
-      fetchFoods();
-    } catch (error) {
-      console.error("Error deleting food:", error);
-      alert("削除に失敗しました");
-    }
-  };
-
-  const updatePublishDates = async (
-    id: number,
-    startDate: string | null,
-    endDate: string | null
-  ) => {
-    try {
-      const { error } = await supabase
-        .from("foods")
-        .update({
-          publish_start_date: startDate,
-          publish_end_date: endDate,
-        })
-        .eq("id", id);
-
-      if (error) throw error;
-      fetchFoods();
-    } catch (error) {
-      console.error("Error updating publish dates:", error);
-      alert("公開期間の更新に失敗しました");
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">店舗情報を読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <main className="p-4 sm:p-8">
-        <div className="flex justify-between items-center mb-6">
-          <div className="mb-6">
-            <Link
-              href="/admin"
-              className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
-            >
-              <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
-              <span className="font-medium">管理者画面一覧に戻る</span>
-            </Link>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold">メニュー管理</h1>
-          <button
-            onClick={() => router.push("/admin/add-menu/new")}
-            className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+    <div className="min-h-screen bg-gray-100 p-6">
+      <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
+
+      <div className="max-w-7xl mx-auto">
+        {/* ヘッダー */}
+        <div className="mb-6">
+          <Link
+            href="/admin"
+            className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group mb-4"
           >
-            <PlusCircle className="mr-2" size={20} />
-            新規メニューの追加
-          </button>
-        </div>
+            <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+            <span className="font-medium">管理者画面に戻る</span>
+          </Link>
 
-        {loading ? (
-          <div className="text-center py-4">読み込み中...</div>
-        ) : (
-          <div className="bg-white rounded-lg shadow">
-            <div className="overflow-x-auto">
-              {/* スマートフォン向けカード表示 */}
-              <div className="md:hidden">
-                {foods.map((food) => (
-                  <div key={food.id} className="p-4 border-b">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold">{food.name}</h3>
-                      <span className="text-gray-600">{food.price}円</span>
-                    </div>
-                    <div className="mb-2 text-sm text-gray-500">
-                      店舗名: {food.store_name}
-                    </div>
-                    <div className="flex items-center mb-2">
-                      <button
-                        onClick={() => togglePublish(food)}
-                        className={`flex items-center ${
-                          food.is_published ? "text-green-600" : "text-gray-400"
-                        }`}
-                      >
-                        {food.is_published ? (
-                          <Eye size={18} className="mr-1" />
-                        ) : (
-                          <EyeOff size={18} className="mr-1" />
-                        )}
-                        {food.is_published ? "公開中" : "非公開"}
-                      </button>
-                    </div>
-                    <div className="space-y-2 mb-2">
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">
-                          開始日時
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={food.publish_start_date?.slice(0, 16) || ""}
-                          onChange={(e) =>
-                            updatePublishDates(
-                              food.id,
-                              e.target.value,
-                              food.publish_end_date
-                            )
-                          }
-                          className="w-full border rounded px-2 py-1 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">
-                          終了日時
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={food.publish_end_date?.slice(0, 16) || ""}
-                          onChange={(e) =>
-                            updatePublishDates(
-                              food.id,
-                              food.publish_start_date,
-                              e.target.value
-                            )
-                          }
-                          className="w-full border rounded px-2 py-1 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex space-x-2 pt-2 border-t">
-                      <button
-                        onClick={() =>
-                          router.push(`/admin/add-menu/${food.id}`)
-                        }
-                        className="flex items-center text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit size={18} className="mr-1" />
-                        編集
-                      </button>
-                      <button
-                        onClick={() => handleDelete(food.id)}
-                        className="flex items-center text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 size={18} className="mr-1" />
-                        削除
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* PC向けテーブル表示 */}
-              <table className="min-w-full hidden md:table">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                      商品名
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                      価格
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                      店舗名 {/* 追加 */}
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                      状態
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                      公開期間
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                      操作
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {foods.map((food) => (
-                    <tr key={food.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {food.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {food.price}円
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => togglePublish(food)}
-                          className={`flex items-center ${
-                            food.is_published
-                              ? "text-green-600"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {food.is_published ? (
-                            <Eye size={18} className="mr-1" />
-                          ) : (
-                            <EyeOff size={18} className="mr-1" />
-                          )}
-                          {food.is_published ? "公開中" : "非公開"}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-2">
-                          <input
-                            type="datetime-local"
-                            value={food.publish_start_date?.slice(0, 16) || ""}
-                            onChange={(e) =>
-                              updatePublishDates(
-                                food.id,
-                                e.target.value,
-                                food.publish_end_date
-                              )
-                            }
-                            className="border rounded px-2 py-1 text-sm"
-                          />
-                          <input
-                            type="datetime-local"
-                            value={food.publish_end_date?.slice(0, 16) || ""}
-                            onChange={(e) =>
-                              updatePublishDates(
-                                food.id,
-                                food.publish_start_date,
-                                e.target.value
-                              )
-                            }
-                            className="border rounded px-2 py-1 text-sm"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() =>
-                              router.push(`/admin/add-menu/${food.id}`)
-                            }
-                            className="flex items-center text-blue-600 hover:text-blue-800"
-                          >
-                            <Edit size={18} className="mr-1" />
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleDelete(food.id)}
-                            className="flex items-center text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 size={18} className="mr-1" />
-                            削除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                <Store className="w-8 h-8 mr-3 text-blue-600" />
+                メニュー管理
+              </h1>
+              <p className="text-gray-600 mt-1">店舗を選択してメニューを管理</p>
             </div>
           </div>
+        </div>
+
+        {/* 店舗一覧 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {stores.map((store) => {
+            const stats = getStoreStats(store.id);
+            return (
+              <div
+                key={store.id}
+                onClick={() => router.push(`/admin/add-menu/store/${store.id}`)}
+                className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group"
+              >
+                {/* 店舗画像 */}
+                {store.image_url ? (
+                  <div className="w-full h-32 mb-4 rounded-lg overflow-hidden">
+                    <img
+                      src={store.image_url}
+                      alt={store.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-32 mb-4 rounded-lg bg-gray-200 flex items-center justify-center">
+                    <Store className="w-12 h-12 text-gray-400" />
+                  </div>
+                )}
+
+                {/* 店舗情報 */}
+                <div className="mb-4">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    {store.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-1">{store.address}</p>
+                  <p className="text-sm text-gray-600">{store.opening_hours}</p>
+                </div>
+
+                {/* メニュー統計 */}
+                <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-blue-600">
+                      {stats.total_menus}
+                    </p>
+                    <p className="text-xs text-gray-500">総メニュー数</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-green-600">
+                      {stats.published_menus}
+                    </p>
+                    <p className="text-xs text-gray-500">公開中</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-orange-600">
+                      {stats.unpublished_menus}
+                    </p>
+                    <p className="text-xs text-gray-500">非公開</p>
+                  </div>
+                </div>
+
+                {/* 管理ボタン */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-center text-blue-600 font-medium group-hover:text-blue-700">
+                    <span>メニューを管理</span>
+                    <ArrowLeft className="w-4 h-4 ml-2 rotate-180 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {stores.length === 0 && (
+          <div className="text-center py-12">
+            <Store className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              店舗が登録されていません
+            </h3>
+            <p className="text-gray-600 mb-4">
+              まず店舗を登録してからメニュー管理を行ってください
+            </p>
+            <Link
+              href="/admin/shops"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              店舗管理に移動
+            </Link>
+          </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

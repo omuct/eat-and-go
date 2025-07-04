@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { CATEGORIES, FoodCategory } from "@/app/_types/food";
@@ -19,6 +19,9 @@ interface MenuFormData {
 
 export default function AddNewMenu() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("storeId");
+
   const [formData, setFormData] = useState<MenuFormData>({
     name: "",
     price: 0,
@@ -54,7 +57,27 @@ export default function AddNewMenu() {
 
   useEffect(() => {
     fetchStores();
-  }, []);
+
+    // storeIdが指定されている場合は店舗を事前選択
+    if (storeId) {
+      const fetchStoreAndSetDefault = async () => {
+        const { data, error } = await supabase
+          .from("stores")
+          .select("id, name")
+          .eq("id", storeId)
+          .single();
+
+        if (!error && data) {
+          setFormData((prev) => ({
+            ...prev,
+            store_name: data.name,
+          }));
+        }
+      };
+
+      fetchStoreAndSetDefault();
+    }
+  }, [storeId]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -157,7 +180,13 @@ export default function AddNewMenu() {
 
       console.log("保存成功:", data); // デバッグ用
       alert("メニューを追加しました");
-      router.push("/admin/add-menu");
+
+      // storeIdが指定されている場合は店舗別メニュー管理に戻る
+      if (storeId) {
+        router.push(`/admin/add-menu/store/${storeId}`);
+      } else {
+        router.push("/admin/add-menu");
+      }
     } catch (error) {
       console.error("Error adding menu:", error);
       console.error("Error details:", JSON.stringify(error, null, 2)); // 詳細なエラー情報
