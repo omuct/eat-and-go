@@ -42,6 +42,7 @@ interface Order {
   created_at: string;
   updated_at: string;
   status_updated_at: string;
+  order_number?: string;
   user_name?: string; // 名前のみを表示するためのフィールド
   details?: OrderDetail[];
 }
@@ -516,6 +517,9 @@ export default function OrderHistoryPage() {
                       詳細
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      注文番号
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       注文ID
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -555,6 +559,11 @@ export default function OrderHistoryPage() {
                               }`}
                             />
                           </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {order.order_number || "未割当"}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">

@@ -19,11 +19,22 @@ export default function OrderCompletePage() {
       return;
     }
 
-    // 表示用の注文番号を生成（簡略化のため、ランダム値を使用）
-    const displayNumber = Math.floor(1000 + Math.random() * 9000);
-    setOrderNumber(displayNumber.toString());
+    // 注文番号をAPIから取得
+    const fetchOrderNumber = async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("order_number")
+        .eq("id", orderId)
+        .single();
+      if (!error && data) {
+        setOrderNumber(data.order_number);
+      } else {
+        setOrderNumber(null);
+      }
+    };
+    fetchOrderNumber();
 
-    // 5秒カウントダウン後にリダイレクト
+    // 10秒カウントダウン後にリダイレクト
     const timer = setInterval(() => {
       setCounter((prev) => {
         if (prev <= 1) {

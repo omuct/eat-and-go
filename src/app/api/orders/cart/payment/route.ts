@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { CartItem } from "@/app/_types/cart";
+import { generateOrderNumber } from "@/app/_utils/generateOrderNumber";
 
 // 支払い処理
 export async function POST(request: NextRequest) {
@@ -9,6 +10,9 @@ export async function POST(request: NextRequest) {
     body;
 
   try {
+    // 注文番号を生成
+    const order_number = await generateOrderNumber();
+
     // 注文データを作成
     const orderData = {
       user_id: userId,
@@ -17,6 +21,7 @@ export async function POST(request: NextRequest) {
       payment_method: paymentMethod,
       status: "pending",
       created_at: new Date().toISOString(),
+      order_number, // 追加
     };
 
     // 注文を保存
@@ -54,7 +59,10 @@ export async function POST(request: NextRequest) {
 
     if (clearCartError) throw clearCartError;
 
-    return NextResponse.json({ orderId: order.id });
+    return NextResponse.json({
+      orderId: order.id,
+      orderNumber: order.order_number,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
