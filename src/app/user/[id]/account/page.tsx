@@ -29,6 +29,20 @@ interface UserProfile {
   address: string | null;
 }
 
+interface Store {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+}
+
+interface StoreStaff {
+  id: string;
+  user_id: string;
+  store_id: number;
+  store_name?: string;
+}
+
 interface AccountPageProps {
   params: {
     id: string;
@@ -41,6 +55,8 @@ export default function AccountPage({ params }: AccountPageProps) {
   const [provider, setProvider] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [stores, setStores] = useState<Store[]>([]); // 店舗一覧
+  const [userStore, setUserStore] = useState<Store | null>(null); // ユーザーの所属店舗
   const [profile, setProfile] = useState<UserProfile>({
     id: params.id,
     name: null,
@@ -72,6 +88,84 @@ export default function AccountPage({ params }: AccountPageProps) {
   const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
 
   const isSocialAccount = provider === "google" || provider === "twitter";
+
+  // 店舗一覧を取得
+  const fetchStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, name, address, phone")
+        .order("name");
+
+      if (error) {
+        console.error("店舗一覧取得エラー:", error);
+        return;
+      }
+
+      const typedStores: Store[] = (data || []).map((store: any) => ({
+        id: Number(store.id),
+        name: String(store.name || ""),
+        address: String(store.address || ""),
+        phone: String(store.phone || ""),
+      }));
+
+      setStores(typedStores);
+    } catch (error) {
+      console.error("Error fetching stores:", error);
+    }
+  };
+
+  // ユーザーの所属店舗を取得（代替方法）
+  const fetchUserStore = async (userId: string) => {
+    try {
+      // 1. store_staffテーブルからstore_idを取得
+      const { data: staffData, error: staffError } = await supabase
+        .from("store_staff")
+        .select("store_id")
+        .eq("user_id", userId)
+        .single();
+
+      if (staffError) {
+        if (staffError.code !== "PGRST116") {
+          console.error("店舗スタッフ情報取得エラー:", staffError);
+        }
+        setUserStore(null);
+        return;
+      }
+
+      if (!staffData) {
+        setUserStore(null);
+        return;
+      }
+
+      // 2. storesテーブルから店舗情報を取得
+      const { data: storeData, error: storeError } = await supabase
+        .from("stores")
+        .select("id, name, address, phone")
+        .eq("id", staffData.store_id)
+        .single();
+
+      if (storeError) {
+        console.error("店舗情報取得エラー:", storeError);
+        setUserStore(null);
+        return;
+      }
+
+      if (storeData) {
+        const store: Store = {
+          id: Number(storeData.id),
+          name: String(storeData.name),
+          address: String(storeData.address),
+          phone: String(storeData.phone),
+        };
+        setUserStore(store);
+        console.log("店舗情報取得成功:", store); // デバッグ用
+      }
+    } catch (error) {
+      console.error("Error fetching user store:", error);
+      setUserStore(null);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -138,7 +232,7 @@ export default function AccountPage({ params }: AccountPageProps) {
 
           setProfile(typedProfile);
           setEditedProfile(typedProfile);
-          return;
+          console.log("プロフィール取得成功:", typedProfile); // デバッグ用
         }
         throw new Error("プロフィールの取得に失敗しました");
       }
@@ -167,7 +261,15 @@ export default function AccountPage({ params }: AccountPageProps) {
 
   useEffect(() => {
     fetchProfile();
+    fetchStores();
   }, [params.id, router]);
+
+  // 別のuseEffectで店舗情報を取得
+  useEffect(() => {
+    if (profile.role === "store_staff") {
+      fetchUserStore(params.id);
+    }
+  }, [profile.role, params.id]);
 
   const handleSave = async () => {
     try {
@@ -464,6 +566,72 @@ export default function AccountPage({ params }: AccountPageProps) {
                   </div>
                 </div>
 
+                {/* 所属店舗（店舗スタッフの場合のみ表示） */}
+                {profile.role === "store_staff" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <svg
+                        className="w-4 h-4 inline mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                      所属店舗
+                    </label>
+                    <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      {userStore ? (
+                        <div>
+                          <div className="font-medium text-gray-900 flex items-center">
+                            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full mr-2">
+                              店舗
+                            </span>
+                            {userStore.name}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            <div className="flex items-center">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {userStore.address}
+                            </div>
+                            {userStore.phone && (
+                              <div className="flex items-center mt-1">
+                                <Phone className="w-3 h-3 mr-1" />
+                                {userStore.phone}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-red-500 text-sm flex items-center">
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                            />
+                          </svg>
+                          店舗が割り当てられていません
+                          <div className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                            管理者にお問い合わせください
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* 電話番号 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -517,169 +685,234 @@ export default function AccountPage({ params }: AccountPageProps) {
                 </div>
               </div>
             </div>
-
-            {/* パスワード変更 */}
-            {!isSocialAccount && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold mb-6 flex items-center">
-                  <Shield className="w-5 h-5 mr-2 text-gray-600" />
-                  パスワード変更
-                </h2>
-
-                {!isChangingPassword ? (
-                  <button
-                    onClick={() => setIsChangingPassword(true)}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Lock className="w-4 h-4 mr-2" />
-                    パスワードを変更
-                  </button>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        新しいパスワード
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordForm.newPassword}
-                        onChange={(e) =>
-                          setPasswordForm({
-                            ...passwordForm,
-                            newPassword: e.target.value,
-                          })
-                        }
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="6文字以上で入力してください"
-                        minLength={6}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        パスワード確認
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordForm.confirmPassword}
-                        onChange={(e) =>
-                          setPasswordForm({
-                            ...passwordForm,
-                            confirmPassword: e.target.value,
-                          })
-                        }
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="同じパスワードを再入力してください"
-                      />
-                    </div>
-
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={handlePasswordChange}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        変更する
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsChangingPassword(false);
-                          setPasswordForm({
-                            currentPassword: "",
-                            newPassword: "",
-                            confirmPassword: "",
-                          });
-                        }}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                      >
-                        キャンセル
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* サイドバー */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* 危険な操作 */}
+          {/* パスワード変更 */}
+          {!isSocialAccount && (
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center">
-                <Trash2 className="w-5 h-5 mr-2" />
-                危険な操作
-              </h3>
+              <h2 className="text-xl font-semibold mb-6 flex items-center">
+                <Shield className="w-5 h-5 mr-2 text-gray-600" />
+                パスワード変更
+              </h2>
 
-              {!showDeleteConfirm ? (
+              {!isChangingPassword ? (
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                  onClick={() => setIsChangingPassword(true)}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  アカウントを削除
+                  <Lock className="w-4 h-4 mr-2" />
+                  パスワードを変更
                 </button>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                    <p className="text-sm text-red-700 mb-3 font-medium">
-                      ⚠️ この操作は取り消せません
-                    </p>
-                    <p className="text-sm text-red-600 mb-3">
-                      アカウントとすべてのデータが完全に削除されます。
-                    </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      新しいパスワード
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) =>
+                        setPasswordForm({
+                          ...passwordForm,
+                          newPassword: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="6文字以上で入力してください"
+                      minLength={6}
+                    />
+                  </div>
 
-                    {!isSocialAccount && (
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-red-700 mb-2">
-                          確認のためパスワードを入力してください
-                        </label>
-                        <input
-                          type="password"
-                          value={deleteConfirmPassword}
-                          onChange={(e) =>
-                            setDeleteConfirmPassword(e.target.value)
-                          }
-                          className="w-full p-2 border border-red-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                          placeholder="パスワード"
-                        />
-                      </div>
-                    )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      パスワード確認
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) =>
+                        setPasswordForm({
+                          ...passwordForm,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="同じパスワードを再入力してください"
+                    />
+                  </div>
 
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={handleAccountDelete}
-                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                      >
-                        削除する
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowDeleteConfirm(false);
-                          setDeleteConfirmPassword("");
-                        }}
-                        className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors"
-                      >
-                        キャンセル
-                      </button>
-                    </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handlePasswordChange}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      変更する
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsChangingPassword(false);
+                        setPasswordForm({
+                          currentPassword: "",
+                          newPassword: "",
+                          confirmPassword: "",
+                        });
+                      }}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      キャンセル
+                    </button>
                   </div>
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* 注意事項 */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-blue-800 mb-2">
-            ご利用について
-          </h3>
-          <ul className="text-blue-700 text-sm space-y-1">
-            <li>• アカウント情報は正確に入力してください</li>
-            <li>• パスワードは定期的に変更することをお勧めします</li>
-            <li>• アカウント削除は慎重に行ってください</li>
-            <li>• ご不明な点がございましたら管理者までお問い合わせください</li>
-          </ul>
+        {/* サイドバー */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* アカウント情報 */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+              <User className="w-5 h-5 mr-2" />
+              アカウント情報
+            </h3>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">アカウント種別:</span>
+                <span className="font-medium">
+                  {isSocialAccount ? "ソーシャルログイン" : "通常アカウント"}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-600">権限レベル:</span>
+                <span
+                  className={`font-medium ${
+                    profile.role === "admin"
+                      ? "text-red-600"
+                      : profile.role === "store_staff"
+                        ? "text-green-600"
+                        : "text-gray-600"
+                  }`}
+                >
+                  {getRoleText(profile.role)}
+                </span>
+              </div>
+
+              {profile.role === "store_staff" && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">店舗割り当て:</span>
+                  <span
+                    className={`font-medium ${userStore ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {userStore ? "済" : "未割り当て"}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <span className="text-gray-600">プロバイダー:</span>
+                <span className="font-medium capitalize">
+                  {provider || "email"}
+                </span>
+              </div>
+            </div>
+
+            {profile.role === "store_staff" && userStore && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  勤務店舗
+                </h4>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="font-medium text-blue-900">
+                    {userStore.name}
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">
+                    {userStore.address}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* 危険な操作 */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center">
+              <Trash2 className="w-5 h-5 mr-2" />
+              危険な操作
+            </h3>
+
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                アカウントを削除
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-700 mb-3 font-medium">
+                    ⚠️ この操作は取り消せません
+                  </p>
+                  <p className="text-sm text-red-600 mb-3">
+                    アカウントとすべてのデータが完全に削除されます。
+                  </p>
+
+                  {!isSocialAccount && (
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium text-red-700 mb-2">
+                        確認のためパスワードを入力してください
+                      </label>
+                      <input
+                        type="password"
+                        value={deleteConfirmPassword}
+                        onChange={(e) =>
+                          setDeleteConfirmPassword(e.target.value)
+                        }
+                        className="w-full p-2 border border-red-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="パスワード"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleAccountDelete}
+                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                    >
+                      削除する
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirm(false);
+                        setDeleteConfirmPassword("");
+                      }}
+                      className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* 注意事項 */}
+      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-blue-800 mb-2">
+          ご利用について
+        </h3>
+        <ul className="text-blue-700 text-sm space-y-1">
+          <li>• アカウント情報は正確に入力してください</li>
+          <li>• パスワードは定期的に変更することをお勧めします</li>
+          <li>• アカウント削除は慎重に行ってください</li>
+          <li>• ご不明な点がございましたら管理者までお問い合わせください</li>
+        </ul>
       </div>
     </div>
   );

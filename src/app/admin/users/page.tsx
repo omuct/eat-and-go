@@ -43,7 +43,7 @@ interface StoreStaff {
   id: string;
   user_id: string;
   store_id: number;
-  store_name?: string;
+  //store_name?: string;
 }
 
 interface UserStats {
@@ -128,12 +128,13 @@ export default function AdminUsersPage() {
   };
 
   // 店舗一覧を取得
+  // 店舗一覧を取得
   const fetchStores = async () => {
     try {
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, address, phone")
-        .order("name");
+        .select("id, name, address, phone") // nameカラムを取得
+        .order("name"); // nameカラムでソート
 
       if (error) {
         console.error("店舗一覧取得エラー:", error);
@@ -143,28 +144,23 @@ export default function AdminUsersPage() {
       // 型安全性を確保するためのデータ変換
       const typedStores: Store[] = (data || []).map((store: any) => ({
         id: Number(store.id),
-        name: String(store.name || ""),
+        name: String(store.name || ""), // nameカラムを直接使用
         address: String(store.address || ""),
         phone: String(store.phone || ""),
       }));
 
       setStores(typedStores);
+      console.log("店舗一覧取得成功:", typedStores); // デバッグ用
     } catch (error) {
       console.error("Error fetching stores:", error);
     }
   };
-
   // 店舗スタッフの割り当て情報を取得
   const fetchStoreStaff = async () => {
     try {
-      const { data, error } = await supabase.from("store_staff").select(`
-          id,
-          user_id,
-          store_id,
-          stores (
-            name
-          )
-        `);
+      const { data, error } = await supabase
+        .from("store_staff")
+        .select("id, user_id, store_id");
 
       if (error) {
         console.error("店舗スタッフ取得エラー:", error);
@@ -176,15 +172,14 @@ export default function AdminUsersPage() {
         id: String(staff.id),
         user_id: String(staff.user_id),
         store_id: Number(staff.store_id),
-        store_name: staff.stores?.name ? String(staff.stores.name) : undefined,
       }));
 
       setStoreStaff(typedStoreStaff);
+      console.log("店舗スタッフ情報取得成功:", typedStoreStaff); // デバッグ用
     } catch (error) {
       console.error("Error fetching store staff:", error);
     }
   };
-
   // 初回データ取得
   useEffect(() => {
     Promise.all([fetchUsers(), fetchStores(), fetchStoreStaff()]);
@@ -202,20 +197,22 @@ export default function AdminUsersPage() {
     // 検索フィルター
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (user) =>
+      filtered = filtered.filter((user) => {
+        const userStore = getUserStore(user.id);
+        return (
           (user.name?.toLowerCase() || "").includes(lowerTerm) ||
           user.id.toLowerCase().includes(lowerTerm) ||
           (user.role?.toLowerCase() || "").includes(lowerTerm) ||
           (user.phone?.toLowerCase() || "").includes(lowerTerm) ||
-          (user.address?.toLowerCase() || "").includes(lowerTerm)
-      );
+          (user.address?.toLowerCase() || "").includes(lowerTerm) ||
+          (userStore?.name?.toLowerCase() || "").includes(lowerTerm) // 店舗名検索を追加
+        );
+      });
     }
 
     setFilteredUsers(filtered);
     setCurrentPage(1);
   }, [users, roleFilter, searchTerm]);
-
   // 統計情報を計算
   const calculateStats = (): UserStats => {
     return {
@@ -260,6 +257,19 @@ export default function AdminUsersPage() {
   // 編集保存
   const handleSave = async (userId: string) => {
     try {
+      console.log("保存開始:", {
+        userId,
+        editForm,
+        stores: stores.length,
+        storeStaff: storeStaff.length,
+      });
+
+      // 店舗スタッフの場合の店舗選択バリデーション
+      if (editForm.role === "store_staff" && !editForm.store_id) {
+        toast.error("店舗スタッフには店舗の割り当てが必要です");
+        return;
+      }
+
       // プロフィール更新
       const { error: profileError } = await supabase
         .from("profiles")
@@ -270,12 +280,23 @@ export default function AdminUsersPage() {
         })
         .eq("id", userId);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("プロフィール更新エラー:", profileError);
+        throw profileError;
+      }
 
       // 店舗スタッフの場合の店舗割り当て処理
       if (editForm.role === "store_staff" && editForm.store_id) {
         // 既存の割り当てを削除
-        await supabase.from("store_staff").delete().eq("user_id", userId);
+        const { error: deleteError } = await supabase
+          .from("store_staff")
+          .delete()
+          .eq("user_id", userId);
+
+        if (deleteError) {
+          console.error("既存割り当て削除エラー:", deleteError);
+          // 削除エラーは無視（元々存在しない場合）
+        }
 
         // 新しい割り当てを追加
         const { error: staffError } = await supabase
@@ -285,17 +306,29 @@ export default function AdminUsersPage() {
             store_id: editForm.store_id,
           });
 
-        if (staffError) throw staffError;
+        if (staffError) {
+          console.error("新規割り当て追加エラー:", staffError);
+          throw staffError;
+        }
+
+        console.log("店舗割り当て成功:", {
+          userId,
+          store_id: editForm.store_id,
+        });
       } else {
         // 店舗スタッフでない場合は割り当てを削除
         await supabase.from("store_staff").delete().eq("user_id", userId);
       }
 
-      toast.success("ユーザー情報を更新しました");
+      const selectedStore = stores.find((s) => s.id === editForm.store_id);
+      const storeMessage = selectedStore ? ` (${selectedStore.name})` : "";
+
+      toast.success(`ユーザー情報を更新しました${storeMessage}`);
       setEditingUser(null);
 
       // データを再取得
       await Promise.all([fetchUsers(), fetchStoreStaff()]);
+      console.log("データ再取得完了");
     } catch (error) {
       console.error("Save error:", error);
       toast.error("更新に失敗しました");
@@ -334,8 +367,16 @@ export default function AdminUsersPage() {
     const staffInfo = storeStaff.find((s) => s.user_id === userId);
     if (!staffInfo) return null;
 
+    // storesテーブルから店舗情報を取得
     const store = stores.find((s) => s.id === staffInfo.store_id);
-    return store;
+    if (!store) return null;
+
+    return {
+      id: store.id,
+      name: store.name,
+      address: store.address,
+      phone: store.phone,
+    };
   };
 
   const stats = calculateStats();
@@ -421,6 +462,11 @@ export default function AdminUsersPage() {
                   {stats.store_staff}
                 </div>
                 <div className="text-sm text-gray-600">店舗スタッフ</div>
+                <div className="text-xs text-gray-500">
+                  {storeStaff.length > 0
+                    ? `${storeStaff.length}件の店舗割り当て`
+                    : "店舗割り当てなし"}
+                </div>
               </div>
             </div>
           </div>
@@ -450,7 +496,7 @@ export default function AdminUsersPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="名前、ID、役割、連絡先で検索"
+                placeholder="名前、ID、役割、店舗名、連絡先で検索"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -561,43 +607,83 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         {isEditing && editForm.role === "store_staff" ? (
-                          <select
-                            value={editForm.store_id || ""}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                store_id: e.target.value
-                                  ? Number(e.target.value)
-                                  : null,
-                              })
-                            }
-                            className="text-sm border rounded px-2 py-1"
-                          >
-                            <option value="">店舗を選択</option>
-                            {stores.map((store) => (
-                              <option key={store.id} value={store.id}>
-                                {store.name}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="w-full">
+                            {/* デバッグ情報 */}
+                            <div className="text-xs text-blue-600 mb-1">
+                              利用可能店舗数: {stores.length}
+                            </div>
+
+                            <select
+                              value={editForm.store_id || ""}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  store_id: e.target.value
+                                    ? Number(e.target.value)
+                                    : null,
+                                })
+                              }
+                              className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">店舗を選択してください</option>
+                              {stores.map((store) => (
+                                <option key={store.id} value={store.id}>
+                                  {store.name} (ID: {store.id})
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* デバッグ情報：店舗リスト */}
+                            {stores.length === 0 && (
+                              <div className="text-xs text-red-600 mt-1">
+                                店舗が取得できていません
+                              </div>
+                            )}
+
+                            {editForm.store_id && (
+                              <div className="mt-1 text-xs text-gray-500">
+                                選択中:{" "}
+                                {
+                                  stores.find((s) => s.id === editForm.store_id)
+                                    ?.name
+                                }
+                              </div>
+                            )}
+                          </div>
                         ) : userStore ? (
                           <div>
-                            <div className="font-medium">{userStore.name}</div>
-                            <div className="text-gray-500">
+                            <div className="font-medium text-gray-900">
+                              {userStore.name}
+                            </div>
+                            <div className="text-gray-500 text-xs">
                               {userStore.address}
+                            </div>
+                            {/* デバッグ情報 */}
+                            <div className="text-xs text-blue-500 mt-1">
+                              Debug: Store ID {userStore.id}, Staff:{" "}
+                              {
+                                storeStaff.find((s) => s.user_id === user.id)
+                                  ?.store_id
+                              }
+                            </div>
+                          </div>
+                        ) : user.role === "store_staff" ? (
+                          <div>
+                            <div className="text-red-500 text-sm">
+                              店舗が未割り当て
+                            </div>
+                            {/* デバッグ情報 */}
+                            <div className="text-xs text-gray-500 mt-1">
+                              Debug: StoreStaff entries for user {user.id}:{" "}
+                              {
+                                storeStaff.filter((s) => s.user_id === user.id)
+                                  .length
+                              }
                             </div>
                           </div>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div>
-                          <div>{user.phone || "-"}</div>
-                          <div className="text-gray-500">
-                            {user.address || "-"}
-                          </div>
-                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(user.created_at)}

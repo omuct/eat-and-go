@@ -9,6 +9,7 @@ import {
   Calendar,
   Bell,
   ClipboardList,
+  Store,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
     {
       title: "お店管理",
       description: "お店の作成・編集・公開設定",
-      icon: <Bell size={24} />,
+      icon: <Store size={24} />,
       path: "/admin/shops",
     },
   ];
