@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import { CheckCircle, ArrowRight } from "lucide-react";
 
 export default function OrderCompletePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const orderId = searchParams.get("orderId");
+  const params = useParams();
+  const orderId = params.id as string;
   const [counter, setCounter] = useState(10);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId) {
-      router.push("/orders");
+      // useEffectの外でリダイレクトを実行
+      setTimeout(() => router.push("/orders"), 0);
       return;
     }
 
@@ -39,7 +40,8 @@ export default function OrderCompletePage() {
       setCounter((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          router.push("/orders");
+          // 非同期でリダイレクト
+          setTimeout(() => router.push("/orders"), 0);
           return 0;
         }
         return prev - 1;

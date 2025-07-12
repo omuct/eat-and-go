@@ -7,6 +7,8 @@ import Header from "@/app/_components/Header";
 import { ChevronLeft, CreditCard, Banknote } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { generateOrderNumber } from "@/app/_utils/generateOrderNumber";
+import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
 
 interface CartItem {
   id: string;
@@ -100,6 +102,9 @@ export default function PaymentPage() {
         items: cartItems,
       });
 
+      // 注文番号を生成
+      const order_number = await generateOrderNumber();
+
       // 注文データを作成
       const orderData = {
         user_id: session.user.id,
@@ -108,6 +113,7 @@ export default function PaymentPage() {
         payment_method: paymentMethod,
         status: "pending",
         created_at: new Date().toISOString(),
+        order_number,
       };
 
       // 注文を保存
@@ -145,8 +151,59 @@ export default function PaymentPage() {
 
       if (clearCartError) throw clearCartError;
 
+      // ユーザー情報を取得してメール送信
+      try {
+        // ログイン中のユーザーのメールアドレスを取得
+        const userEmail = session.user.email;
+        const userName =
+          session.user.user_metadata?.name ||
+          session.user.email?.split("@")[0] ||
+          "お客様";
+
+        if (userEmail) {
+          console.log("Sending email to logged-in user:", userEmail);
+
+          // 注文アイテムをメール用の形式に変換
+          const emailOrderItems = cartItems.map((item: CartItem) => ({
+            id: item.food_id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          }));
+
+          console.log("Email order items:", emailOrderItems);
+
+          // メール送信（非同期、エラーがあってもログに記録するだけ）
+          const emailResult = await sendOrderConfirmationEmail({
+            to: userEmail,
+            orderNumber: order.order_number,
+            customerName: userName,
+            orderItems: emailOrderItems,
+            totalAmount: totalAmount - discountAmount,
+            orderDate: new Date().toLocaleDateString("ja-JP"),
+          });
+
+          if (!emailResult.success) {
+            console.error(
+              "Failed to send confirmation email:",
+              emailResult.error
+            );
+          } else {
+            console.log(
+              "Order confirmation email sent successfully to:",
+              userEmail
+            );
+          }
+        } else {
+          console.log("No email address found for user");
+        }
+      } catch (emailError) {
+        console.error("Error during email process:", emailError);
+        // メール送信の失敗は注文処理に影響しない
+      }
+
       // 決済完了画面へリダイレクト
-      router.push(`/orders/complete?orderId=${order.id}`);
+      router.push(`/orders/complete/${order.id}`);
     } catch (error) {
       console.error("決済処理エラー:", error);
       toast.error("決済処理中にエラーが発生しました");

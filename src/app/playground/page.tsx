@@ -216,6 +216,7 @@ export default function OrdersPage() {
     setIsLargeSize(false);
     setIsTakeout(false);
   };
+
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case "business-hours":
