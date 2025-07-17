@@ -33,33 +33,49 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     const fetchStore = async () => {
-      const { data, error } = await supabase
-        .from("stores")
-        .select("*")
-        .eq("id", params.id)
-        .single();
+      try {
+        console.log("店舗取得開始:", params.id);
 
-      if (error) {
-        console.error("Error fetching store:", error);
-        setError("店舗情報の取得に失敗しました");
-        return;
-      }
+        const { data, error } = await supabase
+          .from("stores")
+          .select("*")
+          .eq("id", params.id)
+          .single();
 
-      if (data) {
+        console.log("店舗取得結果:", { data, error });
+
+        if (error) {
+          console.error("Error fetching store:", error);
+          setError(`店舗情報の取得に失敗しました: ${error.message}`);
+          return;
+        }
+
+        if (!data) {
+          setError("店舗が見つかりませんでした");
+          return;
+        }
+
+        // 実際のカラム名に合わせて修正
         setFormData({
-          name: data.store_name,
-          address: data.address,
-          phone: data.phone,
-          opening_hours: data.opening_hours,
+          name: data.name || data.store_name || "", // 両方試す
+          address: data.address || "",
+          phone: data.phone || "",
+          opening_hours: data.opening_hours || "",
           description: data.description || "",
           image_url: data.image_url || "",
         });
         setImagePreview(data.image_url || "");
+      } catch (error) {
+        console.error("予期しないエラー:", error);
+        setError("店舗情報の取得中に予期しないエラーが発生しました");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    fetchStore();
+    if (params.id) {
+      fetchStore();
+    }
   }, [params.id]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,31 +111,103 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
+
     try {
       let imageUrl = formData.image_url;
 
       if (imageFile) {
+        console.log("画像アップロード開始");
         imageUrl = await uploadImage(imageFile);
+        console.log("画像アップロード完了:", imageUrl);
       }
 
-      const { error } = await supabase
+      // 既存のデータを取得
+      const { data: existingData, error: fetchError } = await supabase
         .from("stores")
-        .update({
-          store_name: formData.name,
-          address: formData.address,
-          phone: formData.phone,
-          opening_hours: formData.opening_hours,
-          description: formData.description,
-          image_url: imageUrl,
-        })
-        .eq("id", params.id);
+        .select("*")
+        .eq("id", params.id)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) {
+        throw new Error(`データ取得エラー: ${fetchError.message}`);
+      }
 
+      console.log("既存データの構造:", Object.keys(existingData));
+
+      // 古い店舗名を保存（商品データ更新用）
+      const oldStoreName = existingData.name || existingData.store_name || "";
+
+      // 既存データをベースに、フォームデータで上書き
+      const updateData: any = {};
+
+      // 確実に存在するフィールドのみ更新
+      if ("address" in existingData) updateData.address = formData.address;
+      if ("phone" in existingData) updateData.phone = formData.phone;
+      if ("opening_hours" in existingData)
+        updateData.opening_hours = formData.opening_hours;
+      if ("description" in existingData)
+        updateData.description = formData.description;
+      if ("image_url" in existingData) updateData.image_url = imageUrl;
+
+      // 店舗名のカラム名を動的に判定
+      if ("name" in existingData) {
+        updateData.name = formData.name;
+      } else if ("store_name" in existingData) {
+        updateData.store_name = formData.name;
+      }
+
+      console.log("更新データ:", updateData);
+
+      // 1. 店舗情報を更新
+      const { data, error } = await supabase
+        .from("stores")
+        .update(updateData)
+        .eq("id", params.id)
+        .select();
+
+      console.log("Supabase応答:", { data, error });
+
+      if (error) {
+        throw new Error(`データベース更新エラー: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("店舗が見つかりませんでした。");
+      }
+
+      // 2. 店舗名が変更された場合、関連する商品のstore_nameも更新
+      if (oldStoreName !== formData.name && oldStoreName) {
+        console.log("店舗名変更を検出:", {
+          oldStoreName,
+          newStoreName: formData.name,
+        });
+
+        const { data: foodsData, error: foodsError } = await supabase
+          .from("foods")
+          .update({ store_name: formData.name })
+          .eq("store_name", oldStoreName)
+          .select();
+
+        if (foodsError) {
+          console.error("商品データ更新エラー:", foodsError);
+          // エラーが発生しても店舗更新は成功しているので、警告として表示
+          alert(
+            `店舗情報は更新されましたが、一部の商品データの更新に失敗しました: ${foodsError.message}`
+          );
+        } else {
+          console.log("関連商品データも更新完了:", foodsData);
+        }
+      }
+
+      console.log("更新成功:", data);
+      alert("店舗情報を更新しました");
       router.push("/admin/shops");
     } catch (error) {
       console.error("Error updating store:", error);
-      setError("店舗の更新に失敗しました");
+      const errorMessage =
+        (error as { message?: string })?.message || "不明なエラー";
+      setError(`店舗の更新に失敗しました: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +265,100 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
                 />
               </div>
 
-              {/* 他のフィールドも同様... */}
+              {/* 住所 */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  住所 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) =>
+                    setFormData({ ...formData, address: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
+
+              {/* 電話番号 */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  電話番号 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
+
+              {/* 営業時間 */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  営業時間 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.opening_hours}
+                  onChange={(e) =>
+                    setFormData({ ...formData, opening_hours: e.target.value })
+                  }
+                  placeholder="例: 9:00-18:00"
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
+
+              {/* 説明（任意） */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  説明
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  rows={4}
+                />
+              </div>
+
+              {/* 画像アップロード */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  店舗画像
+                </label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="プレビュー"
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                        <p className="mb-2 text-sm text-gray-500">
+                          クリックして画像をアップロード
+                        </p>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                  </label>
+                </div>
+              </div>
 
               {/* 送信ボタン */}
               <div className="flex justify-end">

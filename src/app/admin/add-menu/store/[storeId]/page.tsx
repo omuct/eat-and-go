@@ -353,22 +353,22 @@ export default function StoreMenuManagementPage({
               <table className="min-w-full hidden md:table">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 w-1/4">
                       商品名
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 w-20">
                       価格
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 w-24">
                       カテゴリ
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 w-24">
                       状態
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 w-60">
                       公開期間
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 w-32">
                       操作
                     </th>
                   </tr>
@@ -376,18 +376,18 @@ export default function StoreMenuManagementPage({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {foods.map((food) => (
                     <tr key={food.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-6 py-4 text-sm">
                         <div className="flex items-center">
                           <img
-                            className="h-10 w-10 rounded-full object-cover mr-3"
+                            className="h-10 w-10 rounded-full object-cover mr-3 flex-shrink-0"
                             src={food.image_url}
                             alt={food.name}
                           />
-                          <div>
-                            <div className="font-medium text-gray-900">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-900 truncate">
                               {food.name}
                             </div>
-                            <div className="text-gray-500 text-xs">
+                            <div className="text-gray-500 text-xs truncate">
                               {food.description?.substring(0, 50)}
                               {food.description &&
                                 food.description.length > 50 &&
@@ -407,64 +407,78 @@ export default function StoreMenuManagementPage({
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => togglePublish(food)}
-                          className={`flex items-center ${
+                          className={`flex items-center text-sm ${
                             food.is_published
                               ? "text-green-600"
                               : "text-gray-400"
                           }`}
                         >
                           {food.is_published ? (
-                            <Eye size={18} className="mr-1" />
+                            <Eye size={16} className="mr-1" />
                           ) : (
-                            <EyeOff size={18} className="mr-1" />
+                            <EyeOff size={16} className="mr-1" />
                           )}
-                          {food.is_published ? "公開中" : "非公開"}
+                          <span className="hidden lg:inline">
+                            {food.is_published ? "公開中" : "非公開"}
+                          </span>
                         </button>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="space-y-2">
-                          <input
-                            type="datetime-local"
-                            value={food.publish_start_date?.slice(0, 16) || ""}
-                            onChange={(e) =>
-                              updatePublishDates(
-                                food.id,
-                                e.target.value,
-                                food.publish_end_date
-                              )
-                            }
-                            className="w-full border rounded px-2 py-1 text-sm"
-                          />
-                          <input
-                            type="datetime-local"
-                            value={food.publish_end_date?.slice(0, 16) || ""}
-                            onChange={(e) =>
-                              updatePublishDates(
-                                food.id,
-                                food.publish_start_date,
-                                e.target.value
-                              )
-                            }
-                            className="w-full border rounded px-2 py-1 text-sm"
-                          />
+                      <td className="px-6 py-4">
+                        <div className="space-y-2 w-52">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              開始日時
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={
+                                food.publish_start_date?.slice(0, 16) || ""
+                              }
+                              onChange={(e) =>
+                                updatePublishDates(
+                                  food.id,
+                                  e.target.value,
+                                  food.publish_end_date
+                                )
+                              }
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              終了日時
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={food.publish_end_date?.slice(0, 16) || ""}
+                              onChange={(e) =>
+                                updatePublishDates(
+                                  food.id,
+                                  food.publish_start_date,
+                                  e.target.value
+                                )
+                              }
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                      <td className="px-6 py-4 text-sm font-medium">
+                        <div className="flex flex-col space-y-2">
                           <button
                             onClick={() =>
                               router.push(`/admin/add-menu/${food.id}`)
                             }
-                            className="flex items-center text-blue-600 hover:text-blue-800"
+                            className="flex items-center justify-center text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs transition-colors"
                           >
-                            <Edit size={18} className="mr-1" />
+                            <Edit size={14} className="mr-1" />
                             編集
                           </button>
                           <button
                             onClick={() => handleDelete(food.id, food.name)}
-                            className="flex items-center text-red-600 hover:text-red-800"
+                            className="flex items-center justify-center text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs transition-colors"
                           >
-                            <Trash2 size={18} className="mr-1" />
+                            <Trash2 size={14} className="mr-1" />
                             削除
                           </button>
                         </div>

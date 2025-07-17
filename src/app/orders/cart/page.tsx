@@ -466,47 +466,6 @@ export default function CartPage() {
                     <div className="flex-grow">
                       <h3 className="font-semibold text-lg">{item.name}</h3>
                       <div className="flex flex-wrap gap-y-2 gap-x-4 mt-2">
-                        {/* サイズ表示（変更不可） */}
-                        <div className="flex items-center">
-                          <span className="text-gray-600 text-sm mr-2">
-                            サイズ:
-                          </span>
-                          <span className="text-sm px-2 py-1 bg-gray-100 rounded">
-                            {item.size === "large" ? "大盛り (+50円)" : "普通"}
-                          </span>
-                          {(item.name.includes("丼") ||
-                            item.name.includes("麺")) && (
-                            <span className="text-xs text-gray-500 ml-2">
-                              ※注文後の変更はできません
-                            </span>
-                          )}
-                        </div>
-
-                        {/* イートイン/テイクアウト */}
-                        <div className="flex items-center">
-                          <span className="text-gray-600 text-sm mr-2">
-                            オプション:
-                          </span>
-                          <select
-                            value={item.is_takeout ? "takeout" : "eatIn"}
-                            onChange={() => toggleTakeout(item.id)}
-                            className="border rounded-md p-1 text-sm"
-                          >
-                            <option value="eatIn">イートイン</option>
-                            <option
-                              value="takeout"
-                              disabled={
-                                !isTakeoutAvailable() && !item.is_takeout
-                              }
-                            >
-                              テイクアウト (-10円)
-                              {!isTakeoutAvailable() && !item.is_takeout
-                                ? " (11:30まで)"
-                                : ""}
-                            </option>
-                          </select>
-                        </div>
-
                         {/* 数量 */}
                         <div className="flex items-center">
                           <span className="text-gray-600 text-sm mr-2">
