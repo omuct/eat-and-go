@@ -25,6 +25,7 @@
     "@tiptap/extension-text-align": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
+    "autoprefixer": "^10.4.16",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
@@ -32,11 +33,13 @@
     "isomorphic-dompurify": "^2.16.0",
     "lucide-react": "^0.474.0",
     "next": "^14.2.23",
+    "postcss": "^8.4.31",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^18",
     "react-dom": "^18",
-    "react-toastify": "^11.0.5"
+    "react-toastify": "^11.0.5",
+    "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
@@ -46,16 +49,13 @@
     "@types/qrcode.react": "^1.0.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "autoprefixer": "^10.4.16",
     "eslint": "^8",
     "eslint-config-next": "14.1.0",
     "eslint-plugin-tailwindcss": "^3.17.5",
     "gh-pages": "^6.3.0",
-    "postcss": "^8",
     "prettier": "^3.3.3",
     "prisma": "^6.4.1",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }
