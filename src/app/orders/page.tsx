@@ -345,7 +345,7 @@ export default function OrdersPage() {
             )}
           </div>
         </section>
-        {/* お知らせ詳細モーダル */}
+        {/* お知らせ詳細モーダル   */}
         {selectedAnnouncement && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
