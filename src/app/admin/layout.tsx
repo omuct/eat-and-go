@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "../../hocks/useAuth";
+import { useAuth } from "../../hooks/useAuth";
 import Header from "@/app/_components/Header";
 import { Loader2 } from "lucide-react";
 
