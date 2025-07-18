@@ -68,10 +68,7 @@ export default function AddNewMenu() {
           .single();
 
         if (!error && data) {
-          setFormData((prev) => ({
-            ...prev,
-            store_name: data.name,
-          }));
+          setFormData((prev) => ({ ...prev, store_name: data.name }));
         }
       };
 
@@ -279,8 +276,8 @@ export default function AddNewMenu() {
                 >
                   <option value="">選択してください</option>
                   {CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
+                    <option key={category.value} value={category.value}>
+                      {category.label}
                     </option>
                   ))}
                 </select>
@@ -327,10 +324,7 @@ export default function AddNewMenu() {
                 <select
                   value={formData.store_name}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      store_name: e.target.value,
-                    })
+                    setFormData({ ...formData, store_name: e.target.value })
                   }
                   className="w-full px-3 py-2 border rounded"
                   required

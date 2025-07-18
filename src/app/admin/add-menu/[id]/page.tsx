@@ -217,8 +217,8 @@ export default function EditMenuPage({
                 >
                   <option value="">選択してください</option>
                   {CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
+                    <option key={category.value} value={category.value}>
+                      {category.label}
                     </option>
                   ))}
                 </select>
@@ -266,10 +266,7 @@ export default function EditMenuPage({
                 <select
                   value={formData.store_name}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      store_name: e.target.value,
-                    })
+                    setFormData({ ...formData, store_name: e.target.value })
                   }
                   className="w-full px-3 py-2 border rounded"
                   required
