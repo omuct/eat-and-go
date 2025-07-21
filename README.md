@@ -64,9 +64,68 @@ git clone [リポジトリURL]
 cd [プロジェクト名]
 npm install
 
+# 環境変数の設定
+cp .env.production.example .env.local
+# .env.localファイルを編集して、実際の値を設定
+
 # 開発サーバーの起動
 npm run dev
 ```
+
+## 本番環境（react-order-app.vercel.app）でのPayPay決済対応
+
+### 1. 環境変数の設定
+
+本番環境では以下の環境変数をVercelで設定してください：
+
+```
+# PayPay API設定
+PAYPAY_API_KEY=your_paypay_api_key
+PAYPAY_SECRET=your_paypay_secret_key
+MERCHANT_ID=your_merchant_id
+
+# アプリケーション設定
+NEXT_PUBLIC_BASE_URL=https://react-order-app.vercel.app
+NEXTAUTH_URL=https://react-order-app.vercel.app
+NODE_ENV=production
+```
+
+### 2. PayPay開発者ポータルでの重要な設定
+
+1. [PayPay for Developers](https://developer.paypay.ne.jp/)にログイン
+2. アプリケーション設定で以下のリダイレクトURLを登録：
+   ```
+   https://react-order-app.vercel.app/orders/payment-status/*
+   ```
+3. サンドボックス環境の認証情報を使用中の場合、本番運用時は本番環境の認証情報に変更
+
+### 3. Vercelでのデプロイ
+
+```bash
+# Vercel CLIのインストール
+npm i -g vercel
+
+# プロジェクトのデプロイ
+vercel
+
+# 環境変数の設定
+vercel env add PAYPAY_API_KEY
+vercel env add PAYPAY_SECRET
+vercel env add MERCHANT_ID
+vercel env add NEXT_PUBLIC_BASE_URL
+
+# 再デプロイ
+vercel --prod
+```
+
+### 4. 決済フローの確認
+
+本番環境での決済フロー：
+
+1. `https://react-order-app.vercel.app/orders/cart/payment/[id]` で決済開始
+2. PayPay決済処理
+3. `https://react-order-app.vercel.app/orders/payment-status/[id]` にリダイレクト
+4. 決済ステータスの確認・更新
 
 ## Supabaseの設定
 

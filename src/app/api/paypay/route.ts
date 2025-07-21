@@ -3,13 +3,18 @@ import crypto from "crypto"; // Importing crypto for generating unique IDs
 import PAYPAY from "@paypayopa/paypayopa-sdk-node"; // Importing PayPay SDK
 const { v4: uuidv4 } = require("uuid");
 // POST Handler
-// PayPay SDK設定（サンドボックス環境）
+// PayPay SDK設定（環境に応じて自動切り替え）
 console.log("PayPay SDK設定を初期化中...");
 
 // 環境変数の確認
 const clientId = process.env.PAYPAY_API_KEY || "";
 const clientSecret = process.env.PAYPAY_SECRET || "";
 const merchantId = process.env.MERCHANT_ID || "";
+const isProduction = process.env.NODE_ENV === "production";
+const baseUrl =
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  process.env.VERCEL_URL ||
+  "http://localhost:3000";
 
 console.log("PayPay環境変数確認:", {
   hasClientId: !!clientId,
@@ -17,13 +22,15 @@ console.log("PayPay環境変数確認:", {
   hasMerchantId: !!merchantId,
   clientIdPrefix: clientId ? clientId.substring(0, 10) + "..." : "未設定",
   merchantId: merchantId,
+  isProduction: isProduction,
+  baseUrl: baseUrl,
 });
 
 PAYPAY.Configure({
   clientId: clientId,
   clientSecret: clientSecret,
   merchantId: merchantId,
-  productionMode: false, // サンドボックス環境では必ずfalse
+  productionMode: false, // サンドボックス環境では必ずfalse（本番移行時に変更）
 });
 export async function POST(request: Request) {
   try {
@@ -47,6 +54,17 @@ export async function POST(request: Request) {
     const merchantPaymentId = uuidv4(); // 支払いID（一意になるようにuuidで生成）
     const orderDescription = "学食アプリ - 商品注文"; // Description of the order
 
+    // 環境に応じたリダイレクトURLの構築
+    const redirectUrl = (() => {
+      if (process.env.NEXT_PUBLIC_BASE_URL) {
+        return `${process.env.NEXT_PUBLIC_BASE_URL}/orders/payment-status/${merchantPaymentId}`;
+      } else if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}/orders/payment-status/${merchantPaymentId}`;
+      } else {
+        return `http://localhost:3000/orders/payment-status/${merchantPaymentId}`;
+      }
+    })();
+
     const payload = {
       merchantPaymentId: merchantPaymentId,
       amount: {
@@ -56,7 +74,7 @@ export async function POST(request: Request) {
       codeType: "ORDER_QR",
       orderDescription: orderDescription,
       isAuthorization: false,
-      redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/orders/payment-status/${merchantPaymentId}`, // 正しいリダイレクトURL
+      redirectUrl: redirectUrl,
       redirectType: "WEB_LINK",
     };
 
