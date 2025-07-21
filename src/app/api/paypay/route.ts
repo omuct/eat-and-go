@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const merchantPaymentId = uuidv4(); // 支払いID（一意になるようにuuidで生成）
-    const orderDescription = "学食アプリ - 商品注文"; // Description of the order
+    const orderDescription = "商品注文"; // Description of the order
 
     // 環境に応じたリダイレクトURLの構築
     const redirectUrl = (() => {
