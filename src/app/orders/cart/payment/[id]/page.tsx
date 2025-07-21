@@ -7,6 +7,7 @@ import Header from "@/app/_components/Header";
 import { ChevronLeft, CreditCard, Banknote } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from "axios";
 
 interface CartItem {
   id: string;
@@ -25,9 +26,12 @@ export default function PaymentPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "credit">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cash" | "credit" | "paypay"
+  >("cash");
   const [loading, setLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [payPayUrl, setPayPayUrl] = useState("");
 
   useEffect(() => {
     const fetchCartItems = async () => {
@@ -76,8 +80,46 @@ export default function PaymentPage() {
 
     fetchCartItems();
   }, [router]);
-  // ここに決済処理を実装する！！！！！！！！！！！！！！！！！！！！！！！！！！
+
+  // PayPay決済処理
+  const handlePayPayPayment = async () => {
+    try {
+      setProcessingPayment(true);
+      const finalAmount = totalAmount - discountAmount;
+
+      console.log("PayPay決済開始:", { finalAmount });
+
+      const response = await axios.post("/api/paypay", { amount: finalAmount });
+
+      console.log("PayPay API Response:", response.data);
+
+      // レスポンス構造の確認
+      if (
+        response.data?.BODY?.resultInfo?.code === "SUCCESS" &&
+        response.data?.BODY?.data?.url
+      ) {
+        console.log("PayPay決済URL:", response.data.BODY.data.url);
+
+        // PayPay決済画面へリダイレクト
+        window.location.href = response.data.BODY.data.url;
+      } else {
+        console.error("PayPay決済URL取得失敗:", response.data);
+        throw new Error("PayPay決済URLの取得に失敗しました");
+      }
+    } catch (error) {
+      console.error("PayPay決済エラー:", error);
+      toast.error("PayPay決済に失敗しました");
+      setProcessingPayment(false);
+    }
+  };
+
+  // 従来の決済処理（現金・クレジット）
   const handleProcessPayment = async () => {
+    if (paymentMethod === "paypay") {
+      await handlePayPayPayment();
+      return;
+    }
+
     setProcessingPayment(true);
 
     try {
@@ -222,7 +264,49 @@ export default function PaymentPage() {
                     </p>
                   </div>
                 </label>
+
+                {/* PayPay決済オプション */}
+                <label
+                  className={`border rounded-lg p-4 flex items-center cursor-pointer ${
+                    paymentMethod === "paypay"
+                      ? "border-blue-500 bg-blue-50"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="paypay"
+                    checked={paymentMethod === "paypay"}
+                    onChange={() => setPaymentMethod("paypay")}
+                    className="mr-3"
+                  />
+                  <div className="mr-3 w-6 h-6 bg-red-500 rounded text-white text-xs flex items-center justify-center font-bold">
+                    P
+                  </div>
+                  <div>
+                    <p className="font-medium">PayPay決済</p>
+                    <p className="text-sm text-gray-500">QRコードで簡単決済</p>
+                  </div>
+                </label>
               </div>
+
+              {/* PayPay決済リンク表示 */}
+              {payPayUrl && paymentMethod === "paypay" && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-2">
+                    PayPay決済リンクが生成されました：
+                  </p>
+                  <a
+                    href={payPayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block bg-red-500 hover:bg-red-600 text-white text-center font-bold py-2 px-4 rounded transition-colors"
+                  >
+                    PayPayで支払う
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -287,8 +371,12 @@ export default function PaymentPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    決済処理中...
+                    {paymentMethod === "paypay"
+                      ? "PayPay決済処理中..."
+                      : "決済処理中..."}
                   </>
+                ) : paymentMethod === "paypay" ? (
+                  "PayPayで注文する"
                 ) : (
                   "注文を確定する"
                 )}
