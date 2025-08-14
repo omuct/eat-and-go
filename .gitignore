@@ -16,13 +16,18 @@
 # next.js
 /.next/
 /out/
+/build/
 
 # production
 /build
+/.vercel
 
 # misc
 .DS_Store
 *.pem
+.env
+.env.local
+.env.production
 
 # debug
 npm-debug.log*
