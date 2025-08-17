@@ -21,8 +21,15 @@ interface CartItem {
   total_price: number;
 }
 
-export default function PaymentPage() {
+interface PaymentPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function PaymentPage({ params }: PaymentPageProps) {
   const router = useRouter();
+  const paymentId = params.id;
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -84,7 +91,7 @@ export default function PaymentPage() {
   // PayPay決済処理
   const handlePayPayPayment = async () => {
     setProcessingPayment(true);
-    
+
     try {
       const {
         data: { session },
@@ -104,14 +111,14 @@ export default function PaymentPage() {
         merchantPaymentId: `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
         amount: {
           amount: finalAmount,
-          currency: "JPY"
+          currency: "JPY",
         },
         orderDescription: `学食アプリ注文 - 合計${cartItems.length}点`,
         expiryDate: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15分後
         isAuthorization: false,
         redirectUrl: `${window.location.origin}/orders/payment-status`,
         redirectType: "WEB_LINK",
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
       };
 
       console.log("PayPay決済リクエスト:", paymentPayload);
@@ -119,8 +126,8 @@ export default function PaymentPage() {
       const response = await axios.post("/api/paypay", paymentPayload, {
         timeout: 30000, // 30秒タイムアウト
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
 
       console.log("PayPay APIレスポンス:", response.data);
@@ -128,52 +135,63 @@ export default function PaymentPage() {
       // 成功レスポンスの確認（新しいAPI構造に対応）
       if (response.data?.success && response.data?.data?.url) {
         console.log("PayPay決済URL:", response.data.data.url);
-        
+
         // 決済情報をローカルストレージに保存（決済完了後の処理用）
-        localStorage.setItem('paypay_payment_data', JSON.stringify({
-          merchantPaymentId: paymentPayload.merchantPaymentId,
-          amount: paymentPayload.amount.amount,
-          cartItems: cartItems,
-          userId: session.user.id,
-          timestamp: Date.now()
-        }));
+        localStorage.setItem(
+          "paypay_payment_data",
+          JSON.stringify({
+            merchantPaymentId: paymentPayload.merchantPaymentId,
+            amount: paymentPayload.amount.amount,
+            cartItems: cartItems,
+            userId: session.user.id,
+            timestamp: Date.now(),
+          })
+        );
 
         // PayPay決済画面へリダイレクト
         window.location.href = response.data.data.url;
-      } 
+      }
       // 従来のレスポンス構造も対応
-      else if (response.data?.BODY?.resultInfo?.code === "SUCCESS" && response.data?.BODY?.data?.url) {
+      else if (
+        response.data?.BODY?.resultInfo?.code === "SUCCESS" &&
+        response.data?.BODY?.data?.url
+      ) {
         console.log("PayPay決済URL（従来形式）:", response.data.BODY.data.url);
         window.location.href = response.data.BODY.data.url;
-      } 
-      else {
+      } else {
         console.error("PayPay決済URL取得失敗:", response.data);
-        
+
         // 詳細なエラー情報を表示
-        const errorMessage = response.data?.error || response.data?.details || response.data?.BODY?.resultInfo?.message || "PayPay決済URLの取得に失敗しました";
+        const errorMessage =
+          response.data?.error ||
+          response.data?.details ||
+          response.data?.BODY?.resultInfo?.message ||
+          "PayPay決済URLの取得に失敗しました";
         toast.error(`PayPay決済エラー: ${errorMessage}`);
-        
+
         throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("PayPay決済エラー:", error);
-      
+
       let errorMessage = "PayPay決済に失敗しました";
-      
+
       if (axios.isAxiosError(error)) {
         if (error.response?.data?.error) {
           errorMessage = `PayPay決済エラー: ${error.response.data.error}`;
         } else if (error.response?.data?.details) {
           errorMessage = `PayPay決済エラー: ${error.response.data.details}`;
-        } else if (error.code === 'ECONNABORTED') {
-          errorMessage = "PayPay決済がタイムアウトしました。再度お試しください。";
+        } else if (error.code === "ECONNABORTED") {
+          errorMessage =
+            "PayPay決済がタイムアウトしました。再度お試しください。";
         } else if (error.response?.status === 500) {
-          errorMessage = "PayPay決済サーバーエラーが発生しました。しばらく待ってから再度お試しください。";
+          errorMessage =
+            "PayPay決済サーバーエラーが発生しました。しばらく待ってから再度お試しください。";
         }
       } else if (error instanceof Error) {
         errorMessage = `PayPay決済エラー: ${error.message}`;
       }
-      
+
       toast.error(errorMessage);
       setProcessingPayment(false);
     }
