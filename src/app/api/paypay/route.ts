@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import PAYPAY from "@paypayopa/paypayopa-sdk-node";
-import * as uuid from "uuid";
+import { randomUUID } from "crypto";
 
 // PayPay SDK設定
 function configurePayPay() {
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
 
     // 決済ID生成（リクエストから取得されていない場合）
     if (!merchantPaymentId) {
-      merchantPaymentId = uuid.v4();
+      merchantPaymentId = randomUUID();
     }
 
     // リダイレクトURL構築（リクエストから取得されていない場合）
