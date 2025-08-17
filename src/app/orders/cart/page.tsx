@@ -429,8 +429,24 @@ export default function CartPage() {
     }
   };
 
-  const proceedToCheckout = () => {
-    router.push("/orders/cart/payment/{id}");
+  const proceedToCheckout = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      // ユーザーIDまたは一意の決済IDを生成
+      const paymentId = `payment_${Date.now()}_${session.user.id.substring(0, 8)}`;
+      router.push(`/orders/cart/payment/${paymentId}`);
+    } catch (error) {
+      console.error("Error proceeding to checkout:", error);
+      toast.error("決済画面への移動に失敗しました");
+    }
   };
 
   return (
