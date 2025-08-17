@@ -5,11 +5,10 @@ import { randomUUID } from "crypto";
 // PayPay SDK設定
 function configurePayPay() {
   const config = {
-    clientId: process.env.PAYPAY_CLIENT_ID || process.env.PAYPAY_API_KEY || "",
-    clientSecret:
-      process.env.PAYPAY_CLIENT_SECRET || process.env.PAYPAY_SECRET || "",
-    merchantId: process.env.PAYPAY_MERCHANT_ID || process.env.MERCHANT_ID || "",
-    productionMode: process.env.NODE_ENV === "production" ? false : false, // サンドボックス環境
+    clientId: process.env.PAYPAY_CLIENT_ID || "",
+    clientSecret: process.env.PAYPAY_CLIENT_SECRET || "",
+    merchantId: process.env.PAYPAY_MERCHANT_ID || "",
+    productionMode: false, // 常にサンドボックス環境
   };
 
   console.log("PayPay設定:", {
@@ -21,9 +20,16 @@ function configurePayPay() {
     clientIdLength: config.clientId?.length || 0,
     clientSecretLength: config.clientSecret?.length || 0,
     env: process.env.NODE_ENV,
+    // デバッグ用：先頭4文字のみ表示
+    clientIdPreview: config.clientId?.substring(0, 4) || "none",
+    merchantIdPreview: config.merchantId?.substring(0, 4) || "none",
   });
 
   PAYPAY.Configure(config);
+
+  // 設定確認
+  console.log("PayPay SDK設定完了");
+
   return config;
 }
 
