@@ -24,6 +24,15 @@ interface PaymentData {
   status: PaymentStatus;
 }
 
+// 注文データのインターフェース
+interface OrderData {
+  id: string;
+  orderNumber: string;
+  totalAmount: number;
+  paymentMethod: string;
+  createdAt: string;
+}
+
 // ローディングコンポーネント
 function LoadingComponent() {
   return (
@@ -45,8 +54,10 @@ function PaymentStatusContent() {
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("PENDING");
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+  const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const maxRetries = 10; // 最大10回まで確認
 
   useEffect(() => {
@@ -60,12 +71,10 @@ function PaymentStatusContent() {
         try {
           savedPaymentData = localStorage.getItem("paypay_payment_data");
         } catch (e) {
-          // サーバーサイドではlocalStorageが利用できないため
           console.log("localStorage is not available on server side");
         }
 
         let paymentInfo = null;
-
         if (savedPaymentData) {
           paymentInfo = JSON.parse(savedPaymentData);
         }
@@ -109,15 +118,19 @@ function PaymentStatusContent() {
 
           // 決済完了の場合
           if (status === "COMPLETED") {
-            toast.success("決済が完了しました！");
-
-            // 注文データの作成処理をここで実行
-            await createOrder(paymentInfo);
-
-            // 3秒後に完了ページにリダイレクト
-            setTimeout(() => {
-              router.push("/orders/complete");
-            }, 3000);
+            // 注文データの作成処理をここで実行（重複実行防止）
+            if (!orderData && !isCreatingOrder) {
+              const createdOrder = await createOrder(paymentInfo);
+              if (createdOrder) {
+                // 即座に完了ページにリダイレクト（注文IDを渡す）
+                router.push(`/orders/complete?orderId=${createdOrder.id}`);
+                return;
+              }
+            } else if (orderData) {
+              // 既に注文が作成済みの場合はそのままリダイレクト
+              router.push(`/orders/complete?orderId=${orderData.id}`);
+              return;
+            }
           }
           // 決済失敗の場合
           else if (status === "FAILED" || status === "CANCELED") {
@@ -129,7 +142,6 @@ function PaymentStatusContent() {
             // 3秒後に再確認
             setTimeout(() => {
               setRetryCount((prev) => prev + 1);
-              checkPaymentStatus();
             }, 3000);
           } else {
             setLoading(false);
@@ -140,7 +152,6 @@ function PaymentStatusContent() {
           if (retryCount < maxRetries) {
             setTimeout(() => {
               setRetryCount((prev) => prev + 1);
-              checkPaymentStatus();
             }, 3000);
           } else {
             setPaymentStatus("FAILED");
@@ -154,7 +165,6 @@ function PaymentStatusContent() {
         if (retryCount < maxRetries) {
           setTimeout(() => {
             setRetryCount((prev) => prev + 1);
-            checkPaymentStatus();
           }, 3000);
         } else {
           setPaymentStatus("FAILED");
@@ -165,12 +175,16 @@ function PaymentStatusContent() {
     };
 
     checkPaymentStatus();
-  }, [searchParams, router, retryCount]);
+  }, [searchParams, router, retryCount, orderData, isCreatingOrder]);
 
-  // 注文データの作成
-  const createOrder = async (paymentInfo: any) => {
+  // 注文データの作成（[id]/page.tsx の機能を統合）
+  const createOrder = async (paymentInfo: any): Promise<OrderData | null> => {
+    if (isCreatingOrder) return null; // 重複実行防止
+
+    setIsCreatingOrder(true);
+
     try {
-      if (!paymentInfo) return;
+      if (!paymentInfo) return null;
 
       const {
         data: { session },
@@ -178,47 +192,57 @@ function PaymentStatusContent() {
 
       if (!session) {
         console.error("セッションが見つかりません");
-        return;
+        return null;
       }
 
+      // 注文番号を生成（タイムスタンプベース）
+      const orderNumber = `ORD${Date.now().toString().slice(-8)}`;
+
       // 注文データを作成
-      const orderData = {
+      const orderDataInput = {
         user_id: session.user.id,
         total_amount: paymentInfo.amount,
         discount_amount: 0,
         payment_method: "paypay",
-        payment_status: "completed",
+        status: "pending",
+        order_number: orderNumber,
+        paypay_merchant_payment_id: paymentData?.merchantPaymentId,
         created_at: new Date().toISOString(),
       };
 
+      console.log("注文データ作成中:", orderDataInput);
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
-        .insert(orderData)
+        .insert(orderDataInput)
         .select()
         .single();
 
       if (orderError) {
         console.error("注文作成エラー:", orderError);
-        return;
+        throw orderError;
       }
 
-      // 注文アイテムを作成
+      // 注文詳細を作成
       if (paymentInfo.cartItems && paymentInfo.cartItems.length > 0) {
-        const orderItems = paymentInfo.cartItems.map((item: any) => ({
+        const orderDetailsData = paymentInfo.cartItems.map((item: any) => ({
           order_id: order.id,
           food_id: item.food_id,
-          quantity: item.quantity,
+          name: item.name,
           price: item.price,
+          quantity: item.quantity,
           size: item.size,
           is_takeout: item.is_takeout,
+          amount: item.total_price,
         }));
 
-        const { error: itemsError } = await supabase
-          .from("order_items")
-          .insert(orderItems);
+        const { error: detailsError } = await supabase
+          .from("order_details")
+          .insert(orderDetailsData);
 
-        if (itemsError) {
-          console.error("注文アイテム作成エラー:", itemsError);
+        if (detailsError) {
+          console.error("注文詳細作成エラー:", detailsError);
+          throw detailsError;
         }
       }
 
@@ -240,15 +264,33 @@ function PaymentStatusContent() {
       }
 
       console.log("注文作成完了:", order);
-    } catch (error) {
+
+      // 注文データを状態に保存
+      const orderDataResult: OrderData = {
+        id: order.id,
+        orderNumber: order.order_number,
+        totalAmount: order.total_amount,
+        paymentMethod: order.payment_method,
+        createdAt: order.created_at,
+      };
+
+      setOrderData(orderDataResult);
+      toast.success(`注文が完了しました（注文番号: ${order.order_number}）`);
+
+      return orderDataResult;
+    } catch (error: any) {
       console.error("注文作成処理エラー:", error);
+      toast.error("注文データの作成に失敗しました。");
+      return null;
+    } finally {
+      setIsCreatingOrder(false);
     }
   };
 
+  // 再確認ボタンのハンドラ
   const handleRetryCheck = () => {
     setLoading(true);
     setRetryCount(0);
-    window.location.reload();
   };
 
   const getStatusIcon = () => {
@@ -268,7 +310,7 @@ function PaymentStatusContent() {
   const getStatusMessage = () => {
     switch (paymentStatus) {
       case "COMPLETED":
-        return "決済が完了しました";
+        return orderData ? "注文が完了しました" : "注文を作成中です...";
       case "FAILED":
         return "決済に失敗しました";
       case "CANCELED":
@@ -295,7 +337,20 @@ function PaymentStatusContent() {
 
           <p className="text-lg mb-6 text-gray-700">{getStatusMessage()}</p>
 
-          {paymentData && (
+          {/* 決済完了時は注文番号を表示、それ以外は決済詳細を表示
+          {paymentStatus === "COMPLETED" && orderData ? (
+            <div className="bg-green-50 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-semibold text-green-800 mb-2">
+                ご注文番号
+              </h3>
+              <p className="text-2xl font-bold text-blue-600 mb-2">
+                {orderData.orderNumber}
+              </p>
+              <p className="text-xs text-gray-500">
+                内部注文ID: {orderData.id}
+              </p>
+            </div>
+          ) : paymentData && paymentStatus !== "COMPLETED" ? (
             <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
               <h3 className="font-semibold mb-2">決済詳細</h3>
               <div className="space-y-2 text-sm">
@@ -319,7 +374,7 @@ function PaymentStatusContent() {
                 )}
               </div>
             </div>
-          )}
+          ) : null} */}
 
           {loading && paymentStatus === "PENDING" && (
             <div className="mb-6">
@@ -330,8 +385,16 @@ function PaymentStatusContent() {
             </div>
           )}
 
+          {/* 注文作成中の表示 */}
+          {paymentStatus === "COMPLETED" && isCreatingOrder && (
+            <div className="mb-6">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-2"></div>
+              <p className="text-sm text-green-600">注文を作成中...</p>
+            </div>
+          )}
+
           <div className="space-y-4">
-            {paymentStatus === "COMPLETED" && (
+            {paymentStatus === "COMPLETED" && orderData && (
               <div className="text-green-600 font-medium">
                 3秒後に完了ページに移動します...
               </div>
@@ -339,12 +402,6 @@ function PaymentStatusContent() {
 
             {(paymentStatus === "FAILED" || paymentStatus === "CANCELED") && (
               <div className="space-y-2">
-                <button
-                  onClick={handleRetryCheck}
-                  className="w-full bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  決済ステータスを再確認
-                </button>
                 <button
                   onClick={() => router.push("/orders/cart")}
                   className="w-full bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors"

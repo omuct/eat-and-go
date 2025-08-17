@@ -35,7 +35,7 @@ interface Order {
   user_id: string;
   total_amount: number;
   discount_amount: number;
-  payment_method: "cash" | "credit";
+  payment_method: "cash" | "credit" | "paypay";
   status: "pending" | "cooking" | "ready" | "served";
   created_at: string;
   updated_at: string;
@@ -72,6 +72,7 @@ export default function StoreOrderHistoryPage({
 
   // フィルター関連の状態
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
@@ -194,6 +195,10 @@ export default function StoreOrderHistoryPage({
 
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
+      }
+
+      if (paymentMethodFilter !== "all") {
+        query = query.eq("payment_method", paymentMethodFilter);
       }
 
       const { data, error } = await query;
@@ -388,6 +393,7 @@ export default function StoreOrderHistoryPage({
   // フィルターリセット
   const resetFilters = () => {
     setStatusFilter("all");
+    setPaymentMethodFilter("all");
     setDateFilter("today");
     setSearchTerm("");
     fetchOrders();
@@ -419,7 +425,7 @@ export default function StoreOrderHistoryPage({
     if (store) {
       fetchOrders();
     }
-  }, [store, dateFilter, statusFilter]);
+  }, [store, dateFilter, statusFilter, paymentMethodFilter]);
 
   // 検索語が変更されたときにフィルターを適用
   useEffect(() => {
@@ -474,7 +480,7 @@ export default function StoreOrderHistoryPage({
 
         {/* フィルター部分 */}
         <div className="bg-white rounded-lg shadow mb-6 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* 検索 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -507,6 +513,23 @@ export default function StoreOrderHistoryPage({
                 <option value="cooking">調理中</option>
                 <option value="ready">調理済み</option>
                 <option value="served">提供済み</option>
+              </select>
+            </div>
+
+            {/* 支払方法フィルター */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                支払方法
+              </label>
+              <select
+                value={paymentMethodFilter}
+                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">すべて</option>
+                <option value="cash">現金</option>
+                <option value="credit">クレジット</option>
+                <option value="paypay">PayPay</option>
               </select>
             </div>
 
@@ -632,7 +655,11 @@ export default function StoreOrderHistoryPage({
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {order.payment_method === "cash"
                             ? "現金"
-                            : "クレジット"}
+                            : order.payment_method === "credit"
+                              ? "クレジット"
+                              : order.payment_method === "paypay"
+                                ? "PayPay"
+                                : order.payment_method}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <select

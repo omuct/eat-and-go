@@ -199,7 +199,25 @@ export default function OrdersPage() {
       setCartAnimating(true);
       setTimeout(() => setCartAnimating(false), 1000);
 
-      toast.success("商品をカートに追加しました");
+      toast.success(
+        <div className="flex flex-col gap-2">
+          <span>商品をカートに追加しました</span>
+          <button
+            onClick={() => {
+              router.push("/orders/cart");
+              toast.dismiss();
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            カートに移動
+          </button>
+        </div>,
+        {
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+        }
+      );
       setShowOrderModal(false);
       setQuantity(1);
       setIsLargeSize(false);
