@@ -18,6 +18,9 @@ function configurePayPay() {
     hasMerchantId: !!config.merchantId,
     merchantId: config.merchantId,
     productionMode: config.productionMode,
+    clientIdLength: config.clientId?.length || 0,
+    clientSecretLength: config.clientSecret?.length || 0,
+    env: process.env.NODE_ENV,
   });
 
   PAYPAY.Configure(config);
