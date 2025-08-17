@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:local": "set NODE_ENV=development && set NEXT_TELEMETRY_DISABLED=1 && next build",
+    "build:clean": "rmdir /s /q .next 2>nul & rmdir /s /q build 2>nul & npm run build:local",
     "vercel-build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",

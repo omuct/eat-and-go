@@ -1,110 +1,210 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto"; // Importing crypto for generating unique IDs
-import PAYPAY from "@paypayopa/paypayopa-sdk-node"; // Importing PayPay SDK
-const { v4: uuidv4 } = require("uuid");
-// POST Handler
-// PayPay SDK設定（サンドボックス環境）
-console.log("PayPay SDK設定を初期化中...");
+import PAYPAY from "@paypayopa/paypayopa-sdk-node";
+import { randomUUID } from "crypto";
 
-// 環境変数の確認
-const clientId = process.env.PAYPAY_API_KEY || "";
-const clientSecret = process.env.PAYPAY_SECRET || "";
-const merchantId = process.env.MERCHANT_ID || "";
+// PayPay SDK設定
+function configurePayPay() {
+  const config = {
+    clientId: process.env.PAYPAY_CLIENT_ID || process.env.PAYPAY_API_KEY || "",
+    clientSecret:
+      process.env.PAYPAY_CLIENT_SECRET || process.env.PAYPAY_SECRET || "",
+    merchantId: process.env.PAYPAY_MERCHANT_ID || process.env.MERCHANT_ID || "",
+    productionMode: process.env.NODE_ENV === "production" ? false : false, // サンドボックス環境
+  };
 
-console.log("PayPay環境変数確認:", {
-  hasClientId: !!clientId,
-  hasClientSecret: !!clientSecret,
-  hasMerchantId: !!merchantId,
-  clientIdPrefix: clientId ? clientId.substring(0, 10) + "..." : "未設定",
-  merchantId: merchantId,
-});
+  console.log("PayPay設定:", {
+    hasClientId: !!config.clientId,
+    hasClientSecret: !!config.clientSecret,
+    hasMerchantId: !!config.merchantId,
+    merchantId: config.merchantId,
+    productionMode: config.productionMode,
+  });
 
-PAYPAY.Configure({
-  clientId: clientId,
-  clientSecret: clientSecret,
-  merchantId: merchantId,
-  productionMode: false, // サンドボックス環境では必ずfalse
-});
+  PAYPAY.Configure(config);
+  return config;
+}
+
 export async function POST(request: Request) {
   try {
-    const { amount } = await request.json(); // Extracting amount from request
+    // リクエストデータの取得
+    const body = await request.json();
+    console.log("PayPay APIリクエストボディ:", body);
 
-    // 環境変数の検証
-    if (
-      !process.env.PAYPAY_API_KEY ||
-      !process.env.PAYPAY_SECRET ||
-      !process.env.MERCHANT_ID
-    ) {
-      console.error("PayPay環境変数が不足しています");
-      return new NextResponse(
-        JSON.stringify({
-          error: "PayPay設定が不完全です。管理者にお問い合わせください。",
-        }),
-        { status: 500 }
-      );
-    }
+    // リクエスト形式の確認と amount の抽出
+    let amount;
+    let merchantPaymentId;
+    let orderDescription;
+    let redirectUrl;
+    let expiryDate;
+    let userAgent;
 
-    const merchantPaymentId = uuidv4(); // 支払いID（一意になるようにuuidで生成）
-    const orderDescription = "学食アプリ - 商品注文"; // Description of the order
-
-    const payload = {
-      merchantPaymentId: merchantPaymentId,
-      amount: {
-        amount: parseInt(amount),
-        currency: "JPY",
-      },
-      codeType: "ORDER_QR",
-      orderDescription: orderDescription,
-      isAuthorization: false,
-      redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/orders/payment-status/${merchantPaymentId}`, // 正しいリダイレクトURL
-      redirectType: "WEB_LINK",
-    };
-
-    console.log("PayPay決済リクエスト:", {
-      merchantPaymentId,
-      amount: payload.amount,
-      redirectUrl: payload.redirectUrl,
-    });
-
-    const response = await PAYPAY.QRCodeCreate(payload); // Attempting to create a payment
-
-    console.log("PayPay API レスポンス:", response);
-
-    // レスポンスの検証（PayPayの成功ステータスは200または201）
-    const responseAny = response as any;
-    if (
-      responseAny.STATUS &&
-      responseAny.STATUS !== 200 &&
-      responseAny.STATUS !== 201
-    ) {
-      console.error("PayPay API エラー:", responseAny);
-      return new NextResponse(
-        JSON.stringify({
-          error: "PayPay決済の作成に失敗しました",
-          details: responseAny.BODY?.resultInfo || "不明なエラー",
-        }),
+    if (body.amount && typeof body.amount === "object" && body.amount.amount) {
+      // 新しい形式: { amount: { amount: 100, currency: "JPY" } }
+      amount = body.amount.amount;
+      merchantPaymentId = body.merchantPaymentId;
+      orderDescription = body.orderDescription;
+      redirectUrl = body.redirectUrl;
+      expiryDate = body.expiryDate;
+      userAgent = body.userAgent;
+      console.log("新しい形式で金額抽出:", {
+        originalAmount: body.amount,
+        extractedAmount: amount,
+      });
+    } else if (body.amount && typeof body.amount === "number") {
+      // 従来の形式: { amount: 100 }
+      amount = body.amount;
+      merchantPaymentId = body.orderId;
+      orderDescription = body.description;
+      console.log("従来の形式で金額抽出:", { amount });
+    } else {
+      console.error("不正なamount形式:", {
+        body,
+        amountType: typeof body.amount,
+        amountValue: body.amount,
+      });
+      return NextResponse.json(
+        { error: "有効な金額を指定してください", receivedData: body },
         { status: 400 }
       );
     }
 
-    //  成功時のレスポンス処理
-    console.log("PayPay決済作成成功:", {
-      status: responseAny.STATUS,
-      merchantPaymentId: responseAny.BODY?.data?.merchantPaymentId,
-      qrCodeUrl: responseAny.BODY?.data?.url,
-      deeplink: responseAny.BODY?.data?.deeplink,
+    // 金額の型チェックと変換
+    const numericAmount = Number(amount);
+    console.log("金額変換チェック:", {
+      originalAmount: amount,
+      numericAmount,
+      isNaN: isNaN(numericAmount),
     });
 
-    return NextResponse.json(response); // Sending response back to client
-  } catch (error) {
-    console.error("PayPay Payment Error:", error); // Logging the error
+    if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
+      console.error("無効な金額:", {
+        amount,
+        numericAmount,
+        isNaN: isNaN(numericAmount),
+      });
+      return NextResponse.json(
+        {
+          error:
+            "有効な金額を指定してください（金額は0より大きい数値である必要があります）",
+          receivedAmount: amount,
+        },
+        { status: 400 }
+      );
+    }
 
-    return new NextResponse(
-      JSON.stringify({
-        error: "支払いの処理中にエラーが発生しました",
+    console.log("抽出された金額:", { amount, numericAmount });
+
+    // PayPay SDK設定
+    const config = configurePayPay();
+
+    // 必要な環境変数の確認
+    if (!config.clientId || !config.clientSecret || !config.merchantId) {
+      console.error("PayPay環境変数が不足:", config);
+      return NextResponse.json(
+        {
+          error: "PayPay設定が不完全です",
+          details: {
+            hasClientId: !!config.clientId,
+            hasClientSecret: !!config.clientSecret,
+            hasMerchantId: !!config.merchantId,
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    // 決済ID生成（リクエストから取得されていない場合）
+    if (!merchantPaymentId) {
+      merchantPaymentId = randomUUID();
+    }
+
+    // リダイレクトURL構築（リクエストから取得されていない場合）
+    if (!redirectUrl) {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        (process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : "http://localhost:3000");
+      redirectUrl = `${baseUrl}/orders/payment-status/${merchantPaymentId}`;
+    }
+
+    // PayPay決済ペイロード
+    const payload: any = {
+      merchantPaymentId,
+      amount: {
+        amount: Math.floor(numericAmount), // 確実に整数にする
+        currency: "JPY",
+      },
+      codeType: "ORDER_QR",
+      orderDescription: orderDescription || "学食アプリ - 商品注文",
+      isAuthorization: false,
+      redirectUrl,
+      redirectType: "WEB_LINK",
+    };
+
+    // 有効期限を設定（リクエストに含まれている場合）
+    if (expiryDate) {
+      payload.expiryDate = expiryDate;
+    }
+
+    console.log("PayPay決済リクエスト:", {
+      merchantPaymentId,
+      amount: payload.amount,
+      redirectUrl,
+    });
+
+    // PayPay API呼び出し
+    const response = await PAYPAY.QRCodeCreate(payload);
+    console.log("PayPay APIレスポンス:", response);
+
+    // レスポンス処理
+    const responseData = response as any;
+
+    if (
+      !responseData.STATUS ||
+      (responseData.STATUS !== 200 && responseData.STATUS !== 201)
+    ) {
+      console.error("PayPay API エラー:", responseData);
+      return NextResponse.json(
+        {
+          error: "PayPay決済の作成に失敗しました",
+          details: responseData.BODY?.resultInfo || responseData,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 成功レスポンス
+    const paymentData = responseData.BODY?.data;
+    console.log("PayPay決済作成成功:", {
+      merchantPaymentId,
+      qrCodeUrl: paymentData?.url,
+      deeplink: paymentData?.deeplink,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        url: paymentData?.url,
+        deeplink: paymentData?.deeplink,
+        merchantPaymentId,
+        expiryDate: paymentData?.expiryDate,
+      },
+      merchantPaymentId,
+      qrCodeUrl: paymentData?.url,
+      deeplink: paymentData?.deeplink,
+      redirectUrl,
+      expiryDate: paymentData?.expiryDate,
+    });
+  } catch (error) {
+    console.error("PayPay決済エラー:", error);
+
+    return NextResponse.json(
+      {
+        error: "決済処理中にエラーが発生しました",
         details: error instanceof Error ? error.message : "不明なエラー",
-      }),
-      { status: 400 }
+      },
+      { status: 500 }
     );
   }
 }
