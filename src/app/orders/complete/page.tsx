@@ -5,42 +5,75 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import { CheckCircle, ArrowRight } from "lucide-react";
+import { getOrderNumberById } from "@/app/_utils/orderNumberGenerator";
 
 export default function OrderCompletePage() {
   const router = useRouter();
   const [counter, setCounter] = useState(10);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("orderId");
-    setOrderId(id);
+    const initializePage = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("orderId");
 
-    if (!id) {
-      console.error("注文IDが見つかりません。リダイレクトします。");
-      router.push("/orders");
-      return;
-    }
-
-    // 表示用の注文番号を生成（簡略化のため、ランダム値を使用）
-    const displayNumber = Math.floor(1000 + Math.random() * 9000);
-    setOrderNumber(displayNumber.toString());
-
-    // 5秒カウントダウン後にリダイレクト
-    const timer = setInterval(() => {
-      setCounter((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          router.push("/orders");
-          return 0;
+        if (!id) {
+          console.error("注文IDが見つかりません。リダイレクトします。");
+          setTimeout(() => {
+            router.push("/orders");
+          }, 100);
+          return;
         }
-        return prev - 1;
-      });
-    }, 1000);
 
-    return () => clearInterval(timer);
+        setOrderId(id);
+
+        // 注文番号を取得または生成
+        const fetchedOrderNumber = await getOrderNumberById(id);
+        setOrderNumber(fetchedOrderNumber);
+
+        setIsLoading(false);
+
+        // カウントダウンタイマーを開始
+        const timer = setInterval(() => {
+          setCounter((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              router.push("/orders");
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+
+        return () => clearInterval(timer);
+      } catch (error) {
+        console.error("ページ初期化エラー:", error);
+        setTimeout(() => {
+          router.push("/orders");
+        }, 100);
+      }
+    };
+
+    initializePage();
   }, [router]);
+
+  // ローディング中の表示
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Header />
+        <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">読み込み中...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -56,29 +89,23 @@ export default function OrderCompletePage() {
               <p className="text-gray-700 mb-2">
                 ご注文番号: <span className="font-bold">{orderNumber}</span>
               </p>
-              <p className="text-gray-600">内部注文ID: {orderId}</p>
+              {orderId && (
+                <p className="text-gray-500 text-sm mb-4">
+                  注文ID: {orderId.substring(0, 8)}...
+                </p>
+              )}
             </>
           ) : (
-            <p className="text-red-500">注文番号を取得できませんでした。</p>
+            <p className="text-gray-700 mb-4">ご注文ありがとうございます</p>
           )}
-
-          <div className="max-w-md mx-auto mt-8 bg-blue-50 p-6 rounded-lg border border-blue-100">
-            <h2 className="font-bold text-lg mb-2">
-              ご注文ありがとうございます
-            </h2>
-            <p className="text-gray-700 mb-4">
-              商品が準備できましたら、モニターにお名前が表示されますので、
-              カウンターにてお受け取りください。
-            </p>
-            <p className="text-sm text-gray-600">
-              ※注文確認画面はスマートフォンで保存することをおすすめします
-            </p>
-          </div>
+          <p className="text-gray-600 mb-6">
+            注文内容を確認し、準備が整い次第お知らせいたします。
+          </p>
 
           <div className="mt-8">
             <button
               onClick={() => router.push("/orders")}
-              className="flex items-center justify-center mx-auto px-6 py-2 bg-blue-600 text-white rounded-lg"
+              className="flex items-center justify-center mx-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               トップページへ
               <ArrowRight size={16} className="ml-2" />

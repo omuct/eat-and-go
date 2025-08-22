@@ -5,8 +5,14 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { CATEGORIES, FoodCategory } from "@/app/_types/food";
+import {
+  CATEGORIES,
+  WASTE_CATEGORIES,
+  FoodCategory,
+  WasteCategory,
+} from "@/app/_types/food";
 import Link from "next/link";
+import { toast } from "react-toastify";
 
 interface MenuFormData {
   name: string;
@@ -14,7 +20,8 @@ interface MenuFormData {
   description: string;
   image_url: string;
   category: FoodCategory;
-  store_name: string; // 追加
+  waste_category: WasteCategory; // 新しい分別項目
+  store_name: string;
 }
 
 export default function AddNewMenu() {
@@ -28,9 +35,10 @@ export default function AddNewMenu() {
     description: "",
     image_url: "",
     category: "その他",
-    store_name: "", // 追加
+    waste_category: "燃えるゴミ", // デフォルト値
+    store_name: "",
   });
-  const [stores, setStores] = useState<{ id: number; name: string }[]>([]); // 追加
+  const [stores, setStores] = useState<{ id: number; name: string }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -38,7 +46,7 @@ export default function AddNewMenu() {
 
   // 店舗一覧を取得する関数
   const fetchStores = async () => {
-    console.log("店舗データを取得中..."); // デバッグ用
+    console.log("店舗データを取得中...");
 
     const { data, error } = await supabase
       .from("stores")
@@ -51,7 +59,7 @@ export default function AddNewMenu() {
       return;
     }
 
-    console.log("取得した店舗データ:", data); // デバッグ用
+    console.log("取得した店舗データ:", data);
     setStores(data || []);
   };
 
@@ -109,7 +117,7 @@ export default function AddNewMenu() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(""); // エラーをリセット
+    setError("");
 
     // バリデーション
     if (!formData.name.trim()) {
@@ -120,6 +128,12 @@ export default function AddNewMenu() {
 
     if (!formData.category) {
       setError("カテゴリーを選択してください");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.waste_category) {
+      setError("分別カテゴリーを選択してください");
       setIsLoading(false);
       return;
     }
@@ -144,39 +158,39 @@ export default function AddNewMenu() {
 
     console.log("フォームデータ:", formData);
 
-    console.log("フォームデータ:", formData); // デバッグ用
     try {
       let imageUrl = formData.image_url;
 
       if (imageFile) {
-        console.log("画像をアップロード中..."); // デバッグ用
+        console.log("画像をアップロード中...");
         imageUrl = await uploadImage(imageFile);
-        console.log("アップロード完了:", imageUrl); // デバッグ用
+        console.log("アップロード完了:", imageUrl);
       }
 
       const insertData = {
         name: formData.name,
         price: formData.price,
-        description: formData.description || null, // 空文字の場合はnullに
+        description: formData.description || null,
         image_url: imageUrl,
         category: formData.category,
-        store_name: formData.store_name || "店舗情報なし", // 空の場合のデフォルト値
+        waste_category: formData.waste_category, // 新しい分別項目
+        store_name: formData.store_name || "店舗情報なし",
         is_published: true,
         publish_start_date: null,
         publish_end_date: null,
       };
 
-      console.log("挿入するデータ:", insertData); // デバッグ用
+      console.log("挿入するデータ:", insertData);
 
       const { data, error } = await supabase.from("foods").insert([insertData]);
 
       if (error) {
-        console.error("Supabaseエラー:", error); // デバッグ用
+        console.error("Supabaseエラー:", error);
         throw error;
       }
 
-      console.log("保存成功:", data); // デバッグ用
-      alert("メニューを追加しました");
+      console.log("保存成功:", data);
+      toast.success("メニューを追加しました");
 
       // storeIdが指定されている場合は店舗別メニュー管理に戻る
       if (storeId) {
@@ -186,7 +200,7 @@ export default function AddNewMenu() {
       }
     } catch (error) {
       console.error("Error adding menu:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2)); // 詳細なエラー情報
+      console.error("Error details:", JSON.stringify(error, null, 2));
 
       let errorMessage = "メニューの追加に失敗しました";
 
@@ -212,11 +226,8 @@ export default function AddNewMenu() {
   };
 
   return (
-    // フォームのレイアウトを修正
     <div className="min-h-screen bg-gray-100">
       <main className="p-4 sm:p-8">
-        {" "}
-        {/* パディングを調整 */}
         <div className="max-w-2xl mx-auto">
           <div className="mb-6">
             <Link
@@ -283,6 +294,33 @@ export default function AddNewMenu() {
                 </select>
               </div>
 
+              {/* 分別カテゴリー（新追加） */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  分別カテゴリー <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.waste_category}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      waste_category: e.target.value as WasteCategory,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                >
+                  {WASTE_CATEGORIES.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-sm text-gray-500 mt-1">
+                  ※この項目は管理用で、お客様には表示されません
+                </p>
+              </div>
+
               {/* 価格 */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -317,6 +355,7 @@ export default function AddNewMenu() {
                 />
               </div>
 
+              {/* 店舗名 */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
                   店舗名 <span className="text-red-500">*</span>
@@ -344,32 +383,29 @@ export default function AddNewMenu() {
                 <label className="block text-gray-700 text-sm font-bold mb-2">
                   商品画像 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-6">
-                  <div className="text-center w-full">
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                     {imagePreview ? (
-                      <div className="mb-4">
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="max-w-xs mx-auto rounded max-h-48 object-contain"
-                        />
-                      </div>
+                      <img
+                        src={imagePreview}
+                        alt="プレビュー"
+                        className="w-full h-full object-cover rounded-lg"
+                      />
                     ) : (
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                        <p className="mb-2 text-sm text-gray-500">
+                          クリックして画像をアップロード
+                        </p>
+                      </div>
                     )}
-                    <div className="mt-4">
-                      <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 inline-block">
-                        画像を選択
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          //required={!imagePreview}
-                        />
-                      </label>
-                    </div>
-                  </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                  </label>
                 </div>
               </div>
             </div>
@@ -389,7 +425,7 @@ export default function AddNewMenu() {
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300"
                 disabled={isLoading}
               >
-                {isLoading ? "保存中..." : "保存"}
+                {isLoading ? "保存中..." : "メニューを追加"}
               </button>
             </div>
           </form>

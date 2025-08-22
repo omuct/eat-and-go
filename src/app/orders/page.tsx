@@ -67,11 +67,34 @@ export default function OrdersPage() {
         .eq("user_id", session.user.id);
 
       if (error) throw error;
+
+      console.log("現在のカートアイテム数:", data?.length || 0);
       setCartCount(data?.length || 0);
     } catch (error) {
       console.error("Error fetching cart count:", error);
     }
   };
+
+  // ページがフォーカスされた時にカート数を再読み込み
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchCartItemCount();
+      }
+    };
+
+    const handleFocus = () => {
+      fetchCartItemCount();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   useEffect(() => {
     const checkUserAndFetchData = async () => {
