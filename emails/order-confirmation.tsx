@@ -53,7 +53,7 @@ export const OrderConfirmationEmail = ({
       <Preview>{previewText}</Preview>
       <Container style={container}>
         <Section style={header}>
-          <Text style={headerTitle}>学食アプリ</Text>
+          <Text style={headerTitle}>モバイルオーダーアプリ</Text>
         </Section>
 
         <Section style={content}>

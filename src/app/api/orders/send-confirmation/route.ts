@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { OrderConfirmationEmail } from "../../../../../emails/order-confirmation";
+import { supabase } from "@/lib/supabaseClient";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     console.log("Request body:", body);
 
     const {
-      to,
+      orderId,
       orderNumber,
       customerName,
       orderItems,
@@ -23,9 +24,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // 必須フィールドの検証
-    if (!to || !orderNumber || !orderItems || !totalAmount) {
+    if (!orderId || !orderNumber || !orderItems || !totalAmount) {
       console.log("Missing required fields:", {
-        to,
+        orderId,
         orderNumber,
         orderItems,
         totalAmount,
@@ -35,6 +36,30 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Supabaseで注文情報からuser_idを取得
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .select("user_id")
+      .eq("id", orderId)
+      .single();
+    if (orderError || !orderData?.user_id) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Supabase Authからemailを取得
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("email")
+      .eq("id", orderData.user_id)
+      .single();
+    if (userError || !userData?.email) {
+      return NextResponse.json(
+        { error: "User email not found" },
+        { status: 404 }
+      );
+    }
+    const to = userData.email;
 
     console.log("Rendering email template...");
 
@@ -53,7 +78,7 @@ export async function POST(request: NextRequest) {
     console.log("Email template rendered successfully");
     console.log("Sending email via Resend...");
 
-    // 【開発環境】Resendの制限：認証済みアドレスにしか送信できない
+    // 【開発環境】
     const verifiedEmails =
       process.env.VERIFIED_EMAILS?.split(",").map((email) => email.trim()) ||
       [];
@@ -88,23 +113,16 @@ export async function POST(request: NextRequest) {
 
     // 【本番環境用メール設定 - コメントアウト】
     /*
-    // 本番環境での選択肢:
+    // 本番環境
     
     // Option 1: Resend有料プラン
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || "noreply@resend.dev",
       to: [emailTo],
-      subject: `【学食アプリ】ご注文確認 - 注文番号: ${orderNumber}`,
+      subject: `【モバイルオーダーアプリ】ご注文確認 - 注文番号: ${orderNumber}`,
       html: emailHtml,
     });
     
-    // Option 2: 独自ドメイン (DNS管理権限が必要)
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || "noreply@yourdomain.com",
-      to: [emailTo],
-      subject: `【学食アプリ】ご注文確認 - 注文番号: ${orderNumber}`,
-      html: emailHtml,
-    });
     */
 
     if (error) {
