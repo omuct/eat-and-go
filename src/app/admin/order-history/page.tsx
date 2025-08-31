@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -314,6 +313,7 @@ export default function OrderHistoryStorePage() {
       <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
 
       <div className="max-w-7xl mx-auto">
+
         {/* ヘッダー */}
         <div className="mb-6">
           <Link

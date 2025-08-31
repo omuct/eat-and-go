@@ -67,13 +67,13 @@ export default function OrdersPage() {
         .eq("user_id", session.user.id);
 
       if (error) throw error;
-
       console.log("現在のカートアイテム数:", data?.length || 0);
       setCartCount(data?.length || 0);
     } catch (error) {
       console.error("Error fetching cart count:", error);
     }
   };
+
 
   // ページがフォーカスされた時にカート数を再読み込み
   useEffect(() => {
@@ -487,6 +487,7 @@ export default function OrdersPage() {
                 : "商品がありません"}
             </div>
           ) : (
+
             // 店舗別グループ表示（常に店舗名でソート）
             (() => {
               const groupedFoods = getGroupedFoods();

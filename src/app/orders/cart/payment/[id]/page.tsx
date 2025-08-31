@@ -7,6 +7,8 @@ import Header from "@/app/_components/Header";
 import { ChevronLeft, CreditCard, Banknote } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { generateOrderNumber } from "@/app/_utils/generateOrderNumber";
+import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
 import axios from "axios";
 
 interface CartItem {
@@ -103,6 +105,9 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         return;
       }
 
+      // 注文番号を生成
+      const order_number = await generateOrderNumber();
+      
       const finalAmount = totalAmount - discountAmount;
       console.log("PayPay決済開始:", { finalAmount });
 
@@ -267,8 +272,10 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         discount_amount: discountAmount,
         payment_method: paymentMethod,
         status: "pending",
+        created_at: new Date().toISOString(),
+        order_number,
       };
-
+      
       console.log("注文データ:", orderData);
 
       // トランザクション開始
@@ -336,7 +343,45 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       setCartItems([]);
       setTotalAmount(0);
       setDiscountAmount(0);
+      
+      // ユーザー情報を取得してメール送信
+      try {
+        const userEmail = session.user.email;
+        const userName =
+          session.user.user_metadata?.name ||
+          session.user.email?.split("@")[0] ||
+          "お客様";
 
+        if (userEmail) {
+          const emailOrderItems = cartItems.map((item: CartItem) => ({
+            id: item.food_id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          }));
+
+          const emailResult = await sendOrderConfirmationEmail({
+            to: userEmail,
+            orderNumber: order.order_number,
+            customerName: userName,
+            orderItems: emailOrderItems,
+            totalAmount: totalAmount - discountAmount,
+            orderDate: new Date().toLocaleDateString("ja-JP"),
+          });
+
+          if (!emailResult.success) {
+            console.error("Failed to send confirmation email:", emailResult.error);
+          } else {
+            console.log("Order confirmation email sent successfully to:", userEmail);
+          }
+        } else {
+          console.log("No email address found for user");
+        }
+      } catch (emailError) {
+        console.error("Error during email process:", emailError);
+        // メール送信の失敗は注文処理に影響しない
+      }
+      
       // 完了画面へ
       router.push(`/orders/complete?orderId=${order.id}`);
     } catch (error) {
@@ -416,7 +461,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                     </p>
                   </div>
                 </label>
-
+                
                 {/* PayPay決済オプション */}
                 <label
                   className={`border rounded-lg p-4 flex items-center cursor-pointer ${
@@ -523,6 +568,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
+
                     {paymentMethod === "paypay"
                       ? "PayPay決済処理中..."
                       : "決済処理中..."}

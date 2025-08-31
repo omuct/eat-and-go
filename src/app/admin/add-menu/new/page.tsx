@@ -65,7 +65,6 @@ export default function AddNewMenu() {
 
   useEffect(() => {
     fetchStores();
-
     // storeIdが指定されている場合は店舗を事前選択
     if (storeId) {
       const fetchStoreAndSetDefault = async () => {
