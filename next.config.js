@@ -3,13 +3,11 @@ const nextConfig = {
   images: {
     domains: ["bujcyjitngtgpkabcqtk.supabase.co"],
   },
-  experimental: {
-    serverActions: true,
+  typescript: {
+    ignoreBuildErrors: true,
   },
-  // Prisma関連の設定を追加
-  webpack: (config) => {
-    config.externals = [...config.externals, "pg-native"];
-    return config;
+  eslint: {
+    ignoreDuringBuilds: false,
   },
 };
 

@@ -21,9 +21,9 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { format } from "date-fns";
 
-const CATEGORIES = ["丼", "麺", "サラダ", "デザート", "飲み物"]; // Define your categories here
-
 export default function OrdersPage() {
+  const [selectedStore, setSelectedStore] = useState<string>(""); // 選択された店舗
+  const [availableStores, setAvailableStores] = useState<string[]>([]); // 利用可能な店舗一覧
   const router = useRouter();
   const [foods, setFoods] = useState<Food[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -67,11 +67,34 @@ export default function OrdersPage() {
         .eq("user_id", session.user.id);
 
       if (error) throw error;
+      console.log("現在のカートアイテム数:", data?.length || 0);
       setCartCount(data?.length || 0);
     } catch (error) {
       console.error("Error fetching cart count:", error);
     }
   };
+
+
+  // ページがフォーカスされた時にカート数を再読み込み
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchCartItemCount();
+      }
+    };
+
+    const handleFocus = () => {
+      fetchCartItemCount();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   useEffect(() => {
     const checkUserAndFetchData = async () => {
@@ -110,6 +133,10 @@ export default function OrdersPage() {
 
         setFoods(foodsResult.data || []);
         setAnnouncements(announcementsResult.data || []);
+
+        // 利用可能な店舗一覧を設定
+        const stores = getAvailableStores(foodsResult.data || []);
+        setAvailableStores(stores);
 
         // カート内のアイテム数を取得
         await fetchCartItemCount();
@@ -195,7 +222,25 @@ export default function OrdersPage() {
       setCartAnimating(true);
       setTimeout(() => setCartAnimating(false), 1000);
 
-      toast.success("商品をカートに追加しました");
+      toast.success(
+        <div className="flex flex-col gap-2">
+          <span>商品をカートに追加しました</span>
+          <button
+            onClick={() => {
+              router.push("/orders/cart");
+              toast.dismiss();
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            カートに移動
+          </button>
+        </div>,
+        {
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+        }
+      );
       setShowOrderModal(false);
       setQuantity(1);
       setIsLargeSize(false);
@@ -214,6 +259,50 @@ export default function OrdersPage() {
     setIsLargeSize(false);
     setIsTakeout(false);
   };
+
+  // 利用可能な店舗一覧を取得
+  const getAvailableStores = (foodsData: Food[]) => {
+    const stores = Array.from(
+      new Set(
+        foodsData.map((food) => String(food.store_name ?? "店舗情報なし"))
+      )
+    );
+    return stores.sort();
+  };
+
+  // 店舗でフィルタリングされた商品を取得
+  const getFilteredFoods = () => {
+    if (!selectedStore) return foods;
+    return foods.filter(
+      (food) => (food.store_name || "店舗情報なし") === selectedStore
+    );
+  };
+
+  // 店舗別にグループ化された商品を取得
+  const getGroupedFoods = () => {
+    const filteredFoods = getFilteredFoods();
+    const grouped = filteredFoods.reduce(
+      (groups, food) => {
+        const storeName = food.store_name || "店舗情報なし";
+        if (!groups[storeName]) {
+          groups[storeName] = [];
+        }
+        groups[storeName].push(food);
+        return groups;
+      },
+      {} as Record<string, typeof filteredFoods>
+    );
+
+    // 店舗名でソート
+    const sortedStoreNames = Object.keys(grouped).sort();
+    const result: Record<string, typeof filteredFoods> = {};
+    sortedStoreNames.forEach((storeName) => {
+      result[storeName] = grouped[storeName];
+    });
+
+    return result;
+  };
+
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case "business-hours":
@@ -347,6 +436,42 @@ export default function OrdersPage() {
         <section>
           <h2 className="text-2xl font-bold mb-4">商品一覧</h2>
 
+          {/* 店舗選択ドロップダウン */}
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">
+                  店舗を選択:
+                </span>
+                <select
+                  value={selectedStore}
+                  onChange={(e) => setSelectedStore(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                >
+                  <option value="">全ての店舗</option>
+                  {availableStores.map((store) => (
+                    <option key={store} value={store}>
+                      {store}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 選択状態の表示 */}
+              {selectedStore && (
+                <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <span>選択中: {selectedStore}</span>
+                  <button
+                    onClick={() => setSelectedStore("")}
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    クリア
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}
@@ -355,29 +480,67 @@ export default function OrdersPage() {
 
           {loading ? (
             <div className="text-center py-8">読み込み中...</div>
-          ) : foods.length === 0 ? (
+          ) : getFilteredFoods().length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              商品がありません
+              {selectedStore
+                ? `「${selectedStore}」の商品がありません`
+                : "商品がありません"}
             </div>
           ) : (
-            CATEGORIES.map((category) => (
-              <div key={category} className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">{category}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {foods
-                    .filter((food) => food.category === category)
-                    .map((food) => (
-                      <div
-                        key={food.id}
-                        className="cursor-pointer"
-                        onClick={() => handleProductClick(food)}
-                      >
-                        <ProductCard food={food} />
+
+            // 店舗別グループ表示（常に店舗名でソート）
+            (() => {
+              const groupedFoods = getGroupedFoods();
+              const storeNames = Object.keys(groupedFoods);
+
+              return (
+                <div className="space-y-12">
+                  {storeNames.map((storeName) => (
+                    <div
+                      key={storeName}
+                      className="bg-white rounded-lg shadow-sm overflow-hidden"
+                    >
+                      {/* 店舗名ヘッダー */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 p-2 rounded-lg">
+                            <span className="text-blue-600 font-bold text-sm">
+                              店舗
+                            </span>
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-800">
+                            {storeName}
+                          </h3>
+                          <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
+                            {groupedFoods[storeName].length}品
+                          </span>
+                          {selectedStore && (
+                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                              選択中
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    ))}
+
+                      {/* その店舗の商品一覧 */}
+                      <div className="p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {groupedFoods[storeName].map((food) => (
+                            <div
+                              key={food.id}
+                              className="cursor-pointer transform hover:scale-105 transition-transform"
+                              onClick={() => handleProductClick(food)}
+                            >
+                              <ProductCard food={food} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))
+              );
+            })()
           )}
         </section>
       </main>
@@ -447,44 +610,6 @@ export default function OrdersPage() {
                   </div>
                 </div>
               )}
-
-              {/* 食事タイプ選択 */}
-              <div className="mb-4">
-                <p className="font-medium mb-2">お召し上がり方法</p>
-                <div className="flex gap-3">
-                  <button
-                    className={`px-4 py-2 rounded-md ${
-                      !isTakeout
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-800"
-                    }`}
-                    onClick={() => setIsTakeout(false)}
-                  >
-                    イートイン
-                  </button>
-                  <button
-                    className={`px-4 py-2 rounded-md ${
-                      isTakeout
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-800"
-                    }`}
-                    onClick={() => setIsTakeout(true)}
-                    disabled={!isTakeoutAvailable()}
-                  >
-                    お持ち帰り (-¥10)
-                    {!isTakeoutAvailable() && (
-                      <span className="block text-xs text-red-500 mt-1">
-                        ※11:30までの注文のみ
-                      </span>
-                    )}
-                  </button>
-                </div>
-                {!isTakeoutAvailable() && isTakeout && (
-                  <p className="text-red-500 text-sm mt-1">
-                    11:30を過ぎているため、テイクアウト注文を受け付けていません。
-                  </p>
-                )}
-              </div>
 
               <button
                 onClick={handleAddToCart}

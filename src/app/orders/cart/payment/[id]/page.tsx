@@ -9,6 +9,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { generateOrderNumber } from "@/app/_utils/generateOrderNumber";
 import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
+import axios from "axios";
 
 interface CartItem {
   id: string;
@@ -22,14 +23,24 @@ interface CartItem {
   total_price: number;
 }
 
-export default function PaymentPage() {
+interface PaymentPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function PaymentPage({ params }: PaymentPageProps) {
   const router = useRouter();
+  const paymentId = params.id;
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "credit">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cash" | "credit" | "paypay"
+  >("cash");
   const [loading, setLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [payPayUrl, setPayPayUrl] = useState("");
 
   useEffect(() => {
     const fetchCartItems = async () => {
@@ -78,8 +89,9 @@ export default function PaymentPage() {
 
     fetchCartItems();
   }, [router]);
-  // ここに決済処理を実装する！！！！！！！！！！！！！！！！！！！！！！！！！！
-  const handleProcessPayment = async () => {
+
+  // PayPay決済処理
+  const handlePayPayPayment = async () => {
     setProcessingPayment(true);
 
     try {
@@ -88,26 +100,174 @@ export default function PaymentPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
+        toast.error("ログインが必要です");
         router.push("/login");
         return;
       }
 
-      // 処理中の表示を少し見せるために遅延を入れる
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // ダミーの決済処理（コンソールログ出力のみ）
-      console.log("決済処理成功:", {
-        paymentMethod,
-        total: totalAmount - discountAmount,
-        items: cartItems,
-      });
-
       // 注文番号を生成
       const order_number = await generateOrderNumber();
+      
+      const finalAmount = totalAmount - discountAmount;
+      console.log("PayPay決済開始:", { finalAmount });
 
-      // 注文データを作成
+      // PayPay決済リクエストを作成
+      const paymentPayload = {
+        merchantPaymentId: `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+        amount: {
+          amount: finalAmount,
+          currency: "JPY",
+        },
+        orderDescription: `学食アプリ注文 - 合計${cartItems.length}点`,
+        expiryDate: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15分後
+        isAuthorization: false,
+        redirectUrl: `${window.location.origin}/orders/payment-status`,
+        redirectType: "WEB_LINK",
+        userAgent: navigator.userAgent,
+      };
+
+      console.log("PayPay決済リクエスト:", paymentPayload);
+
+      const response = await axios.post("/api/paypay", paymentPayload, {
+        timeout: 30000, // 30秒タイムアウト
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("PayPay APIレスポンス:", response.data);
+
+      // 成功レスポンスの確認（新しいAPI構造に対応）
+      if (response.data?.success && response.data?.data?.url) {
+        console.log("PayPay決済URL:", response.data.data.url);
+
+        // 決済情報をローカルストレージに保存（決済完了後の処理用）
+        localStorage.setItem(
+          "paypay_payment_data",
+          JSON.stringify({
+            merchantPaymentId: paymentPayload.merchantPaymentId,
+            amount: paymentPayload.amount.amount,
+            cartItems: cartItems,
+            userId: session.user.id,
+            timestamp: Date.now(),
+          })
+        );
+
+        // PayPay決済画面へリダイレクト
+        window.location.href = response.data.data.url;
+      }
+      // 従来のレスポンス構造も対応
+      else if (
+        response.data?.BODY?.resultInfo?.code === "SUCCESS" &&
+        response.data?.BODY?.data?.url
+      ) {
+        console.log("PayPay決済URL（従来形式）:", response.data.BODY.data.url);
+        window.location.href = response.data.BODY.data.url;
+      } else {
+        console.error("PayPay決済URL取得失敗:", response.data);
+
+        // 詳細なエラー情報を表示
+        const errorMessage =
+          response.data?.error ||
+          response.data?.details ||
+          response.data?.BODY?.resultInfo?.message ||
+          "PayPay決済URLの取得に失敗しました";
+        toast.error(`PayPay決済エラー: ${errorMessage}`);
+
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("PayPay決済エラー:", error);
+
+      let errorMessage = "PayPay決済に失敗しました";
+
+      if (axios.isAxiosError(error)) {
+        if (error.response?.data?.error) {
+          errorMessage = `PayPay決済エラー: ${error.response.data.error}`;
+        } else if (error.response?.data?.details) {
+          errorMessage = `PayPay決済エラー: ${error.response.data.details}`;
+        } else if (error.code === "ECONNABORTED") {
+          errorMessage =
+            "PayPay決済がタイムアウトしました。再度お試しください。";
+        } else if (error.response?.status === 500) {
+          errorMessage =
+            "PayPay決済サーバーエラーが発生しました。しばらく待ってから再度お試しください。";
+        }
+      } else if (error instanceof Error) {
+        errorMessage = `PayPay決済エラー: ${error.message}`;
+      }
+
+      toast.error(errorMessage);
+      setProcessingPayment(false);
+    }
+  };
+
+  // 従来の決済処理（現金・クレジット）
+  const handleProcessPayment = async () => {
+    setProcessingPayment(true);
+
+    try {
+      // セッション確認
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.error("認証エラー:", sessionError);
+        router.push("/login");
+        return;
+      }
+
+      console.log("認証済みユーザー:", session.user.id);
+
+      // プロファイルの確認・作成
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profileError && profileError.code === "PGRST116") {
+        // プロファイルが存在しない場合は作成
+        const { error: createError } = await supabase.from("profiles").insert({
+          id: session.user.id,
+          role: "user",
+          name: session.user.email?.split("@")[0] || "ゲスト",
+        });
+
+        if (createError) {
+          console.error("プロファイル作成エラー:", createError);
+          throw new Error("ユーザープロファイルの作成に失敗しました");
+        }
+      }
+
+      // 店舗ID取得
+      let storeId = null;
+      if (cartItems.length > 0) {
+        const { data: foodData } = await supabase
+          .from("foods")
+          .select("store_name")
+          .eq("id", cartItems[0].food_id)
+          .single();
+
+        if (foodData) {
+          const { data: storeData } = await supabase
+            .from("stores")
+            .select("id")
+            .eq("name", foodData.store_name)
+            .single();
+
+          if (storeData) {
+            storeId = storeData.id;
+          }
+        }
+      }
+
+      // 注文データ作成
       const orderData = {
         user_id: session.user.id,
+        store_id: storeId,
         total_amount: totalAmount - discountAmount,
         discount_amount: discountAmount,
         payment_method: paymentMethod,
@@ -115,18 +275,30 @@ export default function PaymentPage() {
         created_at: new Date().toISOString(),
         order_number,
       };
+      
+      console.log("注文データ:", orderData);
 
-      // 注文を保存
+      // トランザクション開始
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert(orderData)
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error("注文保存エラー:", {
+          message: orderError.message,
+          details: orderError.details,
+          hint: orderError.hint,
+          code: orderError.code,
+        });
+        throw new Error(`注文の保存に失敗しました: ${orderError.message}`);
+      }
 
-      // 注文詳細を保存
-      const orderDetailsData = cartItems.map((item: CartItem) => ({
+      console.log("注文保存成功:", order);
+
+      // 注文詳細保存
+      const orderDetailsData = cartItems.map((item) => ({
         order_id: order.id,
         food_id: item.food_id,
         name: item.name,
@@ -134,26 +306,46 @@ export default function PaymentPage() {
         quantity: item.quantity,
         size: item.size,
         is_takeout: item.is_takeout,
-        amount: item.total_price - (item.is_takeout ? 10 * item.quantity : 0),
+        amount: item.total_price,
       }));
 
       const { error: detailsError } = await supabase
         .from("order_details")
         .insert(orderDetailsData);
 
-      if (detailsError) throw detailsError;
+      if (detailsError) {
+        console.error("注文詳細保存エラー:", detailsError);
+        throw new Error(
+          `注文詳細の保存に失敗しました: ${detailsError.message}`
+        );
+      }
 
-      // カートを空にする
-      const { error: clearCartError } = await supabase
+      console.log("注文詳細保存成功");
+
+      // カート削除 - より確実な方法で実行
+      const { error: clearCartError, data: deletedItems } = await supabase
         .from("cart")
         .delete()
-        .eq("user_id", session.user.id);
+        .eq("user_id", session.user.id)
+        .select(); // 削除されたアイテムを取得
 
-      if (clearCartError) throw clearCartError;
+      if (clearCartError) {
+        console.error("カート削除エラー:", clearCartError);
+        // カート削除エラーは致命的ではないが、ユーザーに通知
+        toast.warning(
+          "注文は完了しましたが、カートの削除でエラーが発生しました"
+        );
+      } else {
+        console.log("カート削除完了:", deletedItems);
+      }
 
+      // フロントエンドの状態もクリア
+      setCartItems([]);
+      setTotalAmount(0);
+      setDiscountAmount(0);
+      
       // ユーザー情報を取得してメール送信
       try {
-        // ログイン中のユーザーのメールアドレスを取得
         const userEmail = session.user.email;
         const userName =
           session.user.user_metadata?.name ||
@@ -161,9 +353,6 @@ export default function PaymentPage() {
           "お客様";
 
         if (userEmail) {
-          console.log("Sending email to logged-in user:", userEmail);
-
-          // 注文アイテムをメール用の形式に変換
           const emailOrderItems = cartItems.map((item: CartItem) => ({
             id: item.food_id,
             name: item.name,
@@ -171,9 +360,6 @@ export default function PaymentPage() {
             quantity: item.quantity,
           }));
 
-          console.log("Email order items:", emailOrderItems);
-
-          // メール送信（非同期、エラーがあってもログに記録するだけ）
           const emailResult = await sendOrderConfirmationEmail({
             to: userEmail,
             orderNumber: order.order_number,
@@ -184,15 +370,9 @@ export default function PaymentPage() {
           });
 
           if (!emailResult.success) {
-            console.error(
-              "Failed to send confirmation email:",
-              emailResult.error
-            );
+            console.error("Failed to send confirmation email:", emailResult.error);
           } else {
-            console.log(
-              "Order confirmation email sent successfully to:",
-              userEmail
-            );
+            console.log("Order confirmation email sent successfully to:", userEmail);
           }
         } else {
           console.log("No email address found for user");
@@ -201,12 +381,14 @@ export default function PaymentPage() {
         console.error("Error during email process:", emailError);
         // メール送信の失敗は注文処理に影響しない
       }
-
-      // 決済完了画面へリダイレクト
-      router.push(`/orders/complete/${order.id}`);
+      
+      // 完了画面へ
+      router.push(`/orders/complete?orderId=${order.id}`);
     } catch (error) {
       console.error("決済処理エラー:", error);
-      toast.error("決済処理中にエラーが発生しました");
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      toast.error(`決済処理中にエラーが発生しました: ${errorMessage}`);
       setProcessingPayment(false);
     }
   };
@@ -279,7 +461,49 @@ export default function PaymentPage() {
                     </p>
                   </div>
                 </label>
+                
+                {/* PayPay決済オプション */}
+                <label
+                  className={`border rounded-lg p-4 flex items-center cursor-pointer ${
+                    paymentMethod === "paypay"
+                      ? "border-blue-500 bg-blue-50"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="paypay"
+                    checked={paymentMethod === "paypay"}
+                    onChange={() => setPaymentMethod("paypay")}
+                    className="mr-3"
+                  />
+                  <div className="mr-3 w-6 h-6 bg-red-500 rounded text-white text-xs flex items-center justify-center font-bold">
+                    P
+                  </div>
+                  <div>
+                    <p className="font-medium">PayPay決済</p>
+                    <p className="text-sm text-gray-500">QRコードで簡単決済</p>
+                  </div>
+                </label>
               </div>
+
+              {/* PayPay決済リンク表示 */}
+              {payPayUrl && paymentMethod === "paypay" && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-2">
+                    PayPay決済リンクが生成されました：
+                  </p>
+                  <a
+                    href={payPayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block bg-red-500 hover:bg-red-600 text-white text-center font-bold py-2 px-4 rounded transition-colors"
+                  >
+                    PayPayで支払う
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -344,8 +568,13 @@ export default function PaymentPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    決済処理中...
+
+                    {paymentMethod === "paypay"
+                      ? "PayPay決済処理中..."
+                      : "決済処理中..."}
                   </>
+                ) : paymentMethod === "paypay" ? (
+                  "PayPayで注文する"
                 ) : (
                   "注文を確定する"
                 )}

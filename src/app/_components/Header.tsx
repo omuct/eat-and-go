@@ -11,11 +11,11 @@ interface HeaderProps {
 
 const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [canAccessAdmin, setCanAccessAdmin] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    const checkAdminStatus = async () => {
+    const checkAdminAccess = async () => {
       try {
         const {
           data: { session },
@@ -28,19 +28,22 @@ const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("is_admin")
+          .select("role, is_admin")
           .eq("id", session.user.id)
           .single();
 
-        if (!profileError && profile?.is_admin) {
-          setIsAdmin(true);
+        if (!profileError && profile) {
+          // adminまたはstore_staffの場合は管理者機能にアクセス可能
+          setCanAccessAdmin(
+            profile.role === "admin" || profile.role === "store_staff"
+          );
         }
       } catch (error) {
-        console.error("Error checking admin status:", error);
+        console.error("Error checking admin access:", error);
       }
     };
 
-    checkAdminStatus();
+    checkAdminAccess();
   }, []);
 
   const handleLogout = async () => {
@@ -75,7 +78,7 @@ const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
         )}
         <span className="text-xs mt-1 sm:hidden">カート</span>
       </div>
-      {isAdmin && (
+      {canAccessAdmin && (
         <div
           onClick={() => {
             router.push("/admin");

@@ -72,7 +72,7 @@ export default function AddNewStore() {
 
       const { error } = await supabase.from("stores").insert([
         {
-          store_name: formData.name,
+          name: formData.name,
           address: formData.address,
           phone: formData.phone,
           opening_hours: formData.opening_hours,

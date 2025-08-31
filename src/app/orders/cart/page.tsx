@@ -28,6 +28,74 @@ export default function CartPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
 
+  // カートアイテムを再取得する関数
+  const refreshCartItems = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("cart")
+        .select("*")
+        .eq("user_id", session.user.id);
+
+      if (error) throw error;
+
+      console.log("カートアイテム取得結果:", data);
+
+      setCartItems(data || []);
+      setCartCount(data?.length || 0);
+
+      // 合計金額と割引額の計算
+      let total = 0;
+      let discount = 0;
+
+      (data || []).forEach((item) => {
+        total += item.total_price;
+        if (item.is_takeout) {
+          discount += 10 * item.quantity;
+        }
+      });
+
+      setTotalAmount(total);
+      setDiscountAmount(discount);
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      toast.error("カート情報の取得に失敗しました");
+    }
+  };
+
+  useEffect(() => {
+    refreshCartItems();
+  }, [router]);
+
+  // ページがフォーカスされた時にカートを再読み込み
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshCartItems();
+      }
+    };
+
+    const handleFocus = () => {
+      refreshCartItems();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
   const isTakeoutAvailable = () => {
     const now = new Date();
     const hours = now.getHours();
@@ -35,50 +103,6 @@ export default function CartPage() {
     // 11:30までの場合のみtrue
     return hours < 11 || (hours === 11 && minutes <= 30);
   };
-
-  useEffect(() => {
-    const fetchCartItems = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          router.push("/login");
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("cart")
-          .select("*")
-          .eq("user_id", session.user.id);
-
-        if (error) throw error;
-
-        setCartItems(data || []);
-        setCartCount(data?.length || 0);
-
-        // 合計金額と割引額の計算
-        let total = 0;
-        let discount = 0;
-
-        (data || []).forEach((item) => {
-          total += item.total_price;
-          if (item.is_takeout) {
-            discount += 10 * item.quantity; // お持ち帰りなら1個につき10円引き
-          }
-        });
-
-        setTotalAmount(total);
-        setDiscountAmount(discount);
-      } catch (error) {
-        console.error("Error fetching cart items:", error);
-        toast.error("カート情報の取得に失敗しました");
-      }
-    };
-
-    fetchCartItems();
-  }, [router]);
 
   const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1 || newQuantity > 3) return;
@@ -412,7 +436,7 @@ export default function CartPage() {
       let total = 0;
       let discount = 0;
 
-      remainingItems.forEach((item: CartItem) => {
+      remainingItems.forEach((item) => {
         total += item.total_price;
         if (item.is_takeout) {
           discount += 10 * item.quantity;
@@ -429,8 +453,24 @@ export default function CartPage() {
     }
   };
 
-  const proceedToCheckout = () => {
-    router.push("/orders/cart/payment/{id}");
+  const proceedToCheckout = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      // ユーザーIDまたは一意の決済IDを生成
+      const paymentId = `payment_${Date.now()}_${session.user.id.substring(0, 8)}`;
+      router.push(`/orders/cart/payment/${paymentId}`);
+    } catch (error) {
+      console.error("Error proceeding to checkout:", error);
+      toast.error("決済画面への移動に失敗しました");
+    }
   };
 
   return (
@@ -466,47 +506,6 @@ export default function CartPage() {
                     <div className="flex-grow">
                       <h3 className="font-semibold text-lg">{item.name}</h3>
                       <div className="flex flex-wrap gap-y-2 gap-x-4 mt-2">
-                        {/* サイズ表示（変更不可） */}
-                        <div className="flex items-center">
-                          <span className="text-gray-600 text-sm mr-2">
-                            サイズ:
-                          </span>
-                          <span className="text-sm px-2 py-1 bg-gray-100 rounded">
-                            {item.size === "large" ? "大盛り (+50円)" : "普通"}
-                          </span>
-                          {(item.name.includes("丼") ||
-                            item.name.includes("麺")) && (
-                            <span className="text-xs text-gray-500 ml-2">
-                              ※注文後の変更はできません
-                            </span>
-                          )}
-                        </div>
-
-                        {/* イートイン/テイクアウト */}
-                        <div className="flex items-center">
-                          <span className="text-gray-600 text-sm mr-2">
-                            オプション:
-                          </span>
-                          <select
-                            value={item.is_takeout ? "takeout" : "eatIn"}
-                            onChange={() => toggleTakeout(item.id)}
-                            className="border rounded-md p-1 text-sm"
-                          >
-                            <option value="eatIn">イートイン</option>
-                            <option
-                              value="takeout"
-                              disabled={
-                                !isTakeoutAvailable() && !item.is_takeout
-                              }
-                            >
-                              テイクアウト (-10円)
-                              {!isTakeoutAvailable() && !item.is_takeout
-                                ? " (11:30まで)"
-                                : ""}
-                            </option>
-                          </select>
-                        </div>
-
                         {/* 数量 */}
                         <div className="flex items-center">
                           <span className="text-gray-600 text-sm mr-2">
