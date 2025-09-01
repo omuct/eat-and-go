@@ -24,9 +24,7 @@ interface CartItem {
 }
 
 interface PaymentPageProps {
-  params: {
-    id: string;
-  };
+  params: { id: string };
 }
 
 export default function PaymentPage({ params }: PaymentPageProps) {
@@ -92,7 +90,9 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
   // PayPay決済処理
   const handlePayPayPayment = async () => {
-    setProcessingPayment(true);
+    // ...existing code...
+    // 注文詳細保存（PayPay決済前に必ず保存）
+    // この部分は削除し、order作成後に注文詳細を保存してください
 
     try {
       const {
@@ -107,17 +107,74 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
       // 注文番号を生成
       const order_number = await generateOrderNumber();
-
       const finalAmount = totalAmount - discountAmount;
+
+      // 注文データ作成
+      const orderData = {
+        user_id: session.user.id,
+        total_amount: finalAmount,
+        payment_method: "paypay",
+        status: "pending",
+        created_at: new Date().toISOString(),
+        order_number,
+      };
+
+      // 注文データ保存
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert(orderData)
+        .select()
+        .single();
+
+      if (orderError) {
+        toast.error("注文の保存に失敗しました");
+        console.error("注文保存エラー:", orderError);
+        setProcessingPayment(false);
+        return;
+      }
+
+      // 注文ID・注文番号のバリデーション（order取得後）
+      if (!order?.id || !order?.order_number) {
+        toast.error(
+          "注文番号または注文IDが取得できません。決済後に注文データが正しく生成されているか確認してください。"
+        );
+        console.error("注文データ不足", {
+          orderId: order?.id,
+          orderNumber: order?.order_number,
+        });
+        setProcessingPayment(false);
+        return;
+      }
+
+      // 注文詳細保存（order取得直後に移動）
+      const orderDetailsData = cartItems.map((item) => ({
+        order_id: order.id,
+        food_id: item.food_id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        size: item.size,
+        is_takeout: item.is_takeout,
+        amount: item.total_price,
+      }));
+
+      const { error: detailsError } = await supabase
+        .from("order_details")
+        .insert(orderDetailsData);
+
+      if (detailsError) {
+        toast.error("注文詳細の保存に失敗しました");
+        console.error("注文詳細保存エラー:", detailsError);
+        setProcessingPayment(false);
+        return;
+      }
+
       console.log("PayPay決済開始:", { finalAmount });
 
       // PayPay決済リクエストを作成
       const paymentPayload = {
         merchantPaymentId: `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
-        amount: {
-          amount: finalAmount,
-          currency: "JPY",
-        },
+        amount: { amount: finalAmount, currency: "JPY" },
         orderDescription: `学食アプリ注文 - 合計${cartItems.length}点`,
         expiryDate: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15分後
         isAuthorization: false,
@@ -130,9 +187,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
       const response = await axios.post("/api/paypay", paymentPayload, {
         timeout: 30000, // 30秒タイムアウト
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       console.log("PayPay APIレスポンス:", response.data);
@@ -230,11 +285,13 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
       if (profileError && profileError.code === "PGRST116") {
         // プロファイルが存在しない場合は作成
-        const { error: createError } = await supabase.from("profiles").insert({
-          id: session.user.id,
-          role: "user",
-          name: session.user.email?.split("@")[0] || "ゲスト",
-        });
+        const { error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: session.user.id,
+            role: "user",
+            name: session.user.email?.split("@")[0] || "ゲスト",
+          });
 
         if (createError) {
           console.error("プロファイル作成エラー:", createError);
@@ -548,7 +605,11 @@ export default function PaymentPage({ params }: PaymentPageProps) {
               </div>
 
               <button
-                onClick={handleProcessPayment}
+                onClick={
+                  paymentMethod === "paypay"
+                    ? handlePayPayPayment
+                    : handleProcessPayment
+                }
                 disabled={processingPayment}
                 className="w-full mt-6 py-3 bg-blue-600 text-white rounded-lg font-semibold disabled:bg-blue-400 flex justify-center items-center"
               >
