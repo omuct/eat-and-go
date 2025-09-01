@@ -15,6 +15,7 @@ export default function OrderCompletePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let timer: NodeJS.Timeout;
     const initializePage = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -36,19 +37,19 @@ export default function OrderCompletePage() {
 
         setIsLoading(false);
 
-        // カウントダウンタイマーを開始
-        const timer = setInterval(() => {
+        // カウントダウンタイマーを開始（setStateはレンダリング外でのみ呼ぶ）
+        timer = setInterval(() => {
           setCounter((prev) => {
             if (prev <= 1) {
               clearInterval(timer);
-              router.push("/orders");
+              setTimeout(() => {
+                router.push("/orders");
+              }, 0);
               return 0;
             }
             return prev - 1;
           });
         }, 1000);
-
-        return () => clearInterval(timer);
       } catch (error) {
         console.error("ページ初期化エラー:", error);
         setTimeout(() => {
@@ -58,6 +59,9 @@ export default function OrderCompletePage() {
     };
 
     initializePage();
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [router]);
 
   // ローディング中の表示

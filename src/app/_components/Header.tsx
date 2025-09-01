@@ -118,7 +118,7 @@ const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
             onClick={() => router.push("/")}
             className="text-lg sm:text-xl font-bold cursor-pointer hover:text-blue-600 transition-colors"
           >
-            学食モバイルオーダー
+            EAT & GO
           </div>
 
           {/* PC・タブレット用メニュー */}

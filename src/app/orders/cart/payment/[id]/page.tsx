@@ -419,6 +419,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
           const emailResult = await sendOrderConfirmationEmail({
             to: userEmail,
+            orderId: order.id,
             orderNumber: order.order_number,
             customerName: userName,
             orderItems: emailOrderItems,

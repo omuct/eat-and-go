@@ -26,18 +26,17 @@ export async function sendOrderConfirmationEmail({
   totalAmount,
   orderDate = new Date().toLocaleDateString("ja-JP"),
   pickupTime,
-}: SendOrderConfirmationEmailProps): Promise<{
+  orderId,
+}: SendOrderConfirmationEmailProps & { orderId?: string }): Promise<{
   success: boolean;
   error?: string;
 }> {
   try {
     const response = await fetch("/api/orders/send-confirmation", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        to,
+        orderId,
         orderNumber,
         customerName,
         orderItems,
