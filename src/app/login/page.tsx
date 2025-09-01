@@ -126,9 +126,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/orders`,
-      },
+      options: { redirectTo: `${window.location.origin}/orders` },
     });
 
     if (error) {
@@ -140,9 +138,7 @@ export default function Login() {
   const handleXLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "twitter", // Supabaseでは依然として"twitter"を使用
-      options: {
-        redirectTo: `${window.location.origin}/orders`,
-      },
+      options: { redirectTo: `${window.location.origin}/orders` },
     });
 
     if (error) {
@@ -156,8 +152,8 @@ export default function Login() {
       <div className="w-full max-w-md mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
         <div className="bg-gray-900 p-8 text-white text-center">
           <Utensils className="w-16 h-16 mx-auto mb-4 text-white" />
-          <h1 className="text-2xl font-bold mb-2">予約システム</h1>
-          <p className="text-sm text-gray-400">簡単予約</p>
+          <h1 className="text-2xl font-bold mb-2">EAT & GO</h1>
+          <p className="text-sm text-gray-400">簡単注文</p>
         </div>
 
         <div className="p-8">
