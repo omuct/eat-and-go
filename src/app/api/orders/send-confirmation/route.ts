@@ -78,14 +78,22 @@ export async function POST(request: NextRequest) {
     console.log("Email template rendered successfully");
     console.log("Sending email via Resend...");
 
-    // 【開発環境】
-    const verifiedEmails =
-      process.env.VERIFIED_EMAILS?.split(",").map((email) => email.trim()) ||
-      [];
+    // Supabaseから認証済みメールリスト取得
+    let verifiedEmails: string[] = [];
+    try {
+      const { data: emailRows, error: emailError } = await supabase
+        .from("verified_emails")
+        .select("email");
+      if (!emailError && emailRows) {
+        verifiedEmails = emailRows.map((row: { email: string }) => row.email);
+      }
+    } catch (e) {
+      console.error("verified_emails取得エラー", e);
+    }
     const isVerifiedEmail = verifiedEmails.includes(to);
     const devEmailOverride = process.env.DEV_EMAIL_OVERRIDE;
 
-    console.log("Verified emails list:", verifiedEmails);
+    console.log("Verified emails list (Supabase):", verifiedEmails);
     console.log("User email:", to);
     console.log("Is verified:", isVerifiedEmail);
 

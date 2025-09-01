@@ -10,6 +10,7 @@ import {
   Bell,
   ClipboardList,
   Store,
+  Mail,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -51,6 +52,12 @@ export default function AdminDashboard() {
       description: "お店の作成・編集・公開設定",
       icon: <Store size={24} />,
       path: "/admin/shops",
+    },
+    {
+      title: "メール管理",
+      description: "認証済みメールアドレスの管理・一括同期",
+      icon: <Mail size={24} />,
+      path: "/admin/email",
     },
   ];
 

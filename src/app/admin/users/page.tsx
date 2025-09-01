@@ -24,6 +24,7 @@ import Link from "next/link";
 interface UserProfile {
   id: string;
   name: string | null;
+  email: string | null;
   created_at: string;
   updated_at: string;
   is_admin: boolean;
@@ -69,32 +70,19 @@ export default function AdminUsersPage() {
     role: "admin" | "store_staff" | "user";
     store_id: number | null;
     is_admin: boolean;
-  }>({
-    role: "user",
-    store_id: null,
-    is_admin: false,
-  });
+  }>({ role: "user", store_id: null, is_admin: false });
 
   const usersPerPage = 10;
 
-  // ユーザー一覧を取得
+  // ユーザー一覧を取得（profilesテーブルからメールアドレスも取得）
   const fetchUsers = async () => {
     try {
       setLoading(true);
-
+      // profilesテーブルからメールアドレスを含むユーザー情報を取得
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          `
-          id,
-          name,
-          created_at,
-          updated_at,
-          is_admin,
-          role,
-          phone,
-          address
-        `
+          `id, name, email, created_at, updated_at, is_admin, role, phone, address`
         )
         .order("created_at", { ascending: false });
 
@@ -108,6 +96,7 @@ export default function AdminUsersPage() {
       const typedUsers: UserProfile[] = (data || []).map((user: any) => ({
         id: String(user.id),
         name: user.name ? String(user.name) : null,
+        email: user.email ? String(user.email) : null,
         created_at: String(user.created_at || ""),
         updated_at: String(user.updated_at || ""),
         is_admin: Boolean(user.is_admin),
@@ -301,10 +290,7 @@ export default function AdminUsersPage() {
         // 新しい割り当てを追加
         const { error: staffError } = await supabase
           .from("store_staff")
-          .insert({
-            user_id: userId,
-            store_id: editForm.store_id,
-          });
+          .insert({ user_id: userId, store_id: editForm.store_id });
 
         if (staffError) {
           console.error("新規割り当て追加エラー:", staffError);
@@ -545,7 +531,7 @@ export default function AdminUsersPage() {
                     所属店舗
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    連絡先
+                    連絡先（メールアドレス）
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     登録日
@@ -685,6 +671,16 @@ export default function AdminUsersPage() {
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {/* メールアドレス表示 */}
+                        {user.email ? (
+                          <span className="text-blue-700 font-mono">
+                            {user.email}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">未登録</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(user.created_at)}
                       </td>
@@ -807,6 +803,7 @@ export default function AdminUsersPage() {
           </div>
         )}
 
+        {/* 認証済みメール管理 削除済み */}
         {/* フッター情報 */}
         <div className="mt-8 text-center text-sm text-gray-500">
           最終更新: {new Date().toLocaleString("ja-JP")}

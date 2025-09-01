@@ -32,6 +32,16 @@ export async function sendOrderConfirmationEmail({
   error?: string;
 }> {
   try {
+    // profilesテーブルに存在するメールのみ送信
+    const { canSendEmail } = await import("./canSendEmail");
+    const isAllowed = await canSendEmail(to);
+    if (!isAllowed) {
+      return {
+        success: false,
+        error: "このメールアドレスには送信できません (profilesに存在しません)",
+      };
+    }
+
     const response = await fetch("/api/orders/send-confirmation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
