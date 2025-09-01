@@ -178,7 +178,6 @@ export default function ShopManagement() {
     try {
       const { error } = await supabase.from("stores").delete().eq("id", id);
       if (error) throw error;
-
       // 削除後、データを再取得
       const allowedStoreIds =
         userProfile?.role === "store_staff" ? userStoreIds : [];

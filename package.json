@@ -10,7 +10,9 @@
     "vercel-build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "email:dev": "email dev --port 3001",
+    "email:build": "email build"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -19,6 +21,8 @@
     "@fortawesome/fontawesome-svg-core": "^6.6.0",
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@react-email/components": "0.2.0",
+    "@sendgrid/mail": "^8.1.5",
     "@paypayopa/paypayopa-sdk-node": "^2.1.0",
     "@prisma/client": "^6.4.1",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
@@ -28,6 +32,8 @@
     "@tiptap/extension-text-align": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
+    "react-email": "^4.1.1",
+    "resend": "4.6.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.16",

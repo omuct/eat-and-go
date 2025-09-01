@@ -28,6 +28,74 @@ export default function CartPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
 
+  // カートアイテムを再取得する関数
+  const refreshCartItems = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("cart")
+        .select("*")
+        .eq("user_id", session.user.id);
+
+      if (error) throw error;
+
+      console.log("カートアイテム取得結果:", data);
+
+      setCartItems(data || []);
+      setCartCount(data?.length || 0);
+
+      // 合計金額と割引額の計算
+      let total = 0;
+      let discount = 0;
+
+      (data || []).forEach((item) => {
+        total += item.total_price;
+        if (item.is_takeout) {
+          discount += 10 * item.quantity;
+        }
+      });
+
+      setTotalAmount(total);
+      setDiscountAmount(discount);
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      toast.error("カート情報の取得に失敗しました");
+    }
+  };
+
+  useEffect(() => {
+    refreshCartItems();
+  }, [router]);
+
+  // ページがフォーカスされた時にカートを再読み込み
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshCartItems();
+      }
+    };
+
+    const handleFocus = () => {
+      refreshCartItems();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
   const isTakeoutAvailable = () => {
     const now = new Date();
     const hours = now.getHours();
@@ -35,50 +103,6 @@ export default function CartPage() {
     // 11:30までの場合のみtrue
     return hours < 11 || (hours === 11 && minutes <= 30);
   };
-
-  useEffect(() => {
-    const fetchCartItems = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          router.push("/login");
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("cart")
-          .select("*")
-          .eq("user_id", session.user.id);
-
-        if (error) throw error;
-
-        setCartItems(data || []);
-        setCartCount(data?.length || 0);
-
-        // 合計金額と割引額の計算
-        let total = 0;
-        let discount = 0;
-
-        (data || []).forEach((item) => {
-          total += item.total_price;
-          if (item.is_takeout) {
-            discount += 10 * item.quantity; // お持ち帰りなら1個につき10円引き
-          }
-        });
-
-        setTotalAmount(total);
-        setDiscountAmount(discount);
-      } catch (error) {
-        console.error("Error fetching cart items:", error);
-        toast.error("カート情報の取得に失敗しました");
-      }
-    };
-
-    fetchCartItems();
-  }, [router]);
 
   const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1 || newQuantity > 3) return;

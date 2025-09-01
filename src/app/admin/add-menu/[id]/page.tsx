@@ -5,16 +5,22 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { CATEGORIES, FoodCategory } from "@/app/_types/food";
+import {
+  CATEGORIES,
+  WASTE_CATEGORIES,
+  FoodCategory,
+  WasteCategory,
+} from "@/app/_types/food";
 import Link from "next/link";
 
 interface MenuFormData {
   name: string;
   price: number;
-  description: string | null; // 説明を任意に
+  description: string | null;
   image_url: string;
-  category: FoodCategory; // カテゴリーを追加
-  store_name: string; // 追加
+  category: FoodCategory;
+  waste_category: WasteCategory; // 新しい分別項目
+  store_name: string;
 }
 
 export default function EditMenuPage({
@@ -28,10 +34,11 @@ export default function EditMenuPage({
     price: 0,
     description: "",
     image_url: "",
-    category: "default-category" as FoodCategory,
-    store_name: "", // 追加
+    category: "その他" as FoodCategory,
+    waste_category: "燃えるゴミ" as WasteCategory, // デフォルト値
+    store_name: "",
   });
-  const [stores, setStores] = useState<{ id: number; name: string }[]>([]); // 追加
+  const [stores, setStores] = useState<{ id: number; name: string }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -72,14 +79,15 @@ export default function EditMenuPage({
           description: data.description,
           image_url: data.image_url,
           category: data.category,
-          store_name: data.store_name || "店舗情報なし", // 修正
+          waste_category: data.waste_category || "燃えるゴミ", // 既存データで分別項目がない場合のデフォルト
+          store_name: data.store_name || "店舗情報なし",
         });
         setImagePreview(data.image_url);
       }
     };
 
     fetchFood();
-    fetchStores(); // 追加
+    fetchStores();
   }, [params.id, router]);
 
   const uploadImage = async (file: File) => {
@@ -118,7 +126,8 @@ export default function EditMenuPage({
           description: formData.description,
           image_url: imageUrl,
           category: formData.category,
-          store_name: formData.store_name || "店舗情報なし", // 修正
+          waste_category: formData.waste_category, // 新しい分別項目
+          store_name: formData.store_name || "店舗情報なし",
         })
         .eq("id", params.id);
 
@@ -159,11 +168,8 @@ export default function EditMenuPage({
   };
 
   return (
-    // フォームのレイアウトを修正
     <div className="min-h-screen bg-gray-100">
       <main className="p-4 sm:p-8">
-        {" "}
-        {/* パディングを調整 */}
         <div className="max-w-2xl mx-auto">
           <div className="mb-6">
             <Link
@@ -224,6 +230,33 @@ export default function EditMenuPage({
                 </select>
               </div>
 
+              {/* 分別カテゴリー（新追加） */}
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  分別カテゴリー <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.waste_category}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      waste_category: e.target.value as WasteCategory,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                >
+                  {WASTE_CATEGORIES.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-sm text-gray-500 mt-1">
+                  ※この項目は管理用で、お客様には表示されません
+                </p>
+              </div>
+
               {/* 価格 */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -279,44 +312,36 @@ export default function EditMenuPage({
                     </option>
                   ))}
                 </select>
-                {!formData.store_name && (
-                  <p className="text-gray-500 text-xs mt-1">
-                    店舗を選択してください
-                  </p>
-                )}
               </div>
 
               {/* 画像アップロード */}
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                  商品画像 <span className="text-red-500">*</span>
+                  商品画像
                 </label>
                 <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-6">
-                  <div className="text-center w-full">
-                    {imagePreview ? (
-                      <div className="mb-4">
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="max-w-xs mx-auto rounded max-h-48 object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    )}
-                    <div className="mt-4">
-                      <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 inline-block">
-                        画像を選択
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          required={!imagePreview}
-                        />
-                      </label>
+                  {imagePreview ? (
+                    <div className="text-center">
+                      <img
+                        src={imagePreview}
+                        alt="プレビュー"
+                        className="w-32 h-32 object-cover rounded mb-2 mx-auto"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="text-sm"
+                      />
                     </div>
-                  </div>
+                  ) : (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="text-sm"
+                    />
+                  )}
                 </div>
               </div>
             </div>

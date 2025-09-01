@@ -6,11 +6,24 @@ export type FoodCategory =
   | "ホットスナック"
   | "その他";
 
+export type WasteCategory =
+  | "ペットボトル"
+  | "缶・びん"
+  | "燃えるゴミ"
+  | "その他";
+
 export const CATEGORIES: { value: FoodCategory; label: string }[] = [
   { value: "丼", label: "丼もの" },
   { value: "麺", label: "麺類" },
   { value: "季節限定", label: "季節限定" },
   { value: "ホットスナック", label: "ホットスナック" },
+  { value: "その他", label: "その他" },
+];
+
+export const WASTE_CATEGORIES: { value: WasteCategory; label: string }[] = [
+  { value: "ペットボトル", label: "ペットボトル" },
+  { value: "缶・びん", label: "缶・びん" },
+  { value: "燃えるゴミ", label: "燃えるゴミ" },
   { value: "その他", label: "その他" },
 ];
 
@@ -21,6 +34,7 @@ export interface Food {
   description: string | null;
   image_url: string;
   category: FoodCategory;
+  waste_category?: WasteCategory; // 新しい分別項目
   is_published: boolean;
   publish_start_date: string | null;
   publish_end_date: string | null;

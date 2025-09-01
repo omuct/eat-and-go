@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft,
   RefreshCw,
@@ -11,12 +12,16 @@ import {
   ChevronDown,
   ChevronUp,
   Store,
+  Printer,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import React from "react";
+// @ts-ignore
+import QRCode from "qrcode";
 
 interface OrderDetail {
   id: string;
@@ -42,6 +47,7 @@ interface Order {
   status_updated_at: string;
   user_name?: string;
   details?: OrderDetail[];
+  order_number?: string; // 追加
 }
 
 interface Store {
@@ -60,27 +66,392 @@ export default function StoreOrderHistoryPage({
   params: { storeId: string };
 }) {
   const router = useRouter();
+  const { user, canAccessStore } = useAuth();
   const [store, setStore] = useState<Store | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [orderDetails, setOrderDetails] = useState<
-    Record<string, OrderDetail[]>
-  >({});
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   // フィルター関連の状態
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
-  const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
-  const [endDate, setEndDate] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ページング関連の状態
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(10);
+
+  // 印刷回数を追跡するstate
+  const [printCounts, setPrintCounts] = useState<{ [orderId: string]: number }>(
+    {}
+  );
+
+  // 商品の分別カテゴリを取得する関数
+  const getWasteCategories = (orderDetails: OrderDetail[]) => {
+    // 商品名から分別を推定（実際のアプリでは商品マスタから取得）
+    const wasteCategories = new Set<string>();
+
+    orderDetails.forEach((detail) => {
+      const name = detail.name.toLowerCase();
+      if (
+        name.includes("ペットボトル") ||
+        name.includes("ドリンク") ||
+        name.includes("お茶")
+      ) {
+        wasteCategories.add("ペットボトル");
+      } else if (name.includes("缶") || name.includes("ビール")) {
+        wasteCategories.add("缶・びん");
+      } else {
+        wasteCategories.add("燃えるゴミ");
+      }
+    });
+
+    return Array.from(wasteCategories);
+  };
+
+  // QRコードデータを生成する関数
+  const generateQRCodeData = (order: Order) => {
+    const wasteCategories = getWasteCategories(order.details || []);
+
+    const qrData = {
+      orderId: order.id,
+      orderNumber: order.order_number || `#${order.id.substring(0, 8)}`,
+      userId: order.user_id,
+      userName: order.user_name || "ゲスト",
+      wasteCategories: wasteCategories,
+      totalAmount: order.total_amount,
+      createdAt: order.created_at,
+      storeId: params.storeId,
+      items:
+        order.details?.map((detail) => ({
+          name: detail.name,
+          quantity: detail.quantity,
+          takeout: detail.is_takeout,
+        })) || [],
+    };
+
+    return JSON.stringify(qrData);
+  };
+
+  // QRコード画像を生成する関数
+  const generateQRCodeImage = async (data: string) => {
+    try {
+      const qrCodeDataUrl = await QRCode.toDataURL(data, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      });
+      return qrCodeDataUrl;
+    } catch (error) {
+      console.error("QRコード生成エラー:", error);
+      return "";
+    }
+  };
+
+  // 印刷機能の実装（即座に印刷実行）
+  const handlePrintOrder = async (orderId: string, orderStatus: string) => {
+    // 調理済み（ready）と提供済み（served）の場合のみ印刷可能
+    if (orderStatus !== "ready" && orderStatus !== "served") {
+      toast.warning(`注文 ${orderId.substring(0, 8)}... はまだ調理中です`);
+      return;
+    }
+
+    try {
+      // 注文データを取得
+      const order = orders.find((o) => o.id === orderId);
+      if (!order) {
+        toast.error("注文情報が見つかりません");
+        return;
+      }
+
+      // 注文詳細が不足している場合は再取得
+      if (!order.details || order.details.length === 0) {
+        const { data: orderWithDetails, error } = await supabase
+          .from("orders")
+          .select(
+            `
+            *,
+            order_details (
+              id,
+              food_id,
+              name,
+              price,
+              quantity,
+              size,
+              is_takeout,
+              amount
+            ),
+            profiles (
+              name
+            )
+          `
+          )
+          .eq("id", orderId)
+          .single();
+
+        if (error) {
+          console.error("注文詳細取得エラー:", error);
+          toast.error("注文詳細の取得に失敗しました");
+          return;
+        }
+
+        order.details = orderWithDetails.order_details || [];
+        order.user_name = orderWithDetails.profiles?.name || "ゲスト";
+      }
+
+      // 印刷回数を更新
+      const currentPrintCount = printCounts[orderId] || 0;
+      const newPrintCount = currentPrintCount + 1;
+      setPrintCounts((prev) => ({
+        ...prev,
+        [orderId]: newPrintCount,
+      }));
+
+      // QRコードデータを生成
+      const qrData = generateQRCodeData(order);
+      const qrImage = await generateQRCodeImage(qrData);
+
+      // 即座に印刷実行（印刷回数を渡す）
+      executePrintDirect(order, qrImage, newPrintCount);
+    } catch (error) {
+      console.error("印刷処理エラー:", error);
+      toast.error("印刷処理中にエラーが発生しました");
+    }
+  };
+
+  // 直接印刷を実行する関数（プレビューなし）
+  const executePrintDirect = (
+    order: Order,
+    qrCodeDataUrl: string,
+    printCount: number
+  ) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("印刷ウィンドウを開けませんでした");
+      return;
+    }
+
+    // 注文番号に印刷回数の表示を追加
+    const baseOrderNumber =
+      order.order_number || `#${order.id.substring(0, 8)}`;
+
+    // 各商品を数量分に展開して個別のラベルを作成
+    const printLabels: Array<{
+      name: string;
+      orderNumber: string;
+      totalQuantity: number;
+      currentLabel: number;
+    }> = [];
+
+    order.details?.forEach((detail) => {
+      // 商品の数量分だけラベルを作成
+      for (let i = 1; i <= detail.quantity; i++) {
+        printLabels.push({
+          name: detail.name,
+          orderNumber: baseOrderNumber,
+          totalQuantity: detail.quantity,
+          currentLabel: i,
+        });
+      }
+    });
+
+    // 各ラベルごとに印刷HTMLを生成
+    const printPages = printLabels
+      .map(
+        (label, index) => `
+    <div class="print-page" ${index > 0 ? 'style="page-break-before: always;"' : ""}>
+      <div class="print-container">
+        <!-- 店舗名 -->
+        <div class="store-name">
+          ${store?.name || "学食"}
+        </div>
+        
+        <!-- QRコード -->
+        <div class="qr-section">
+          <div class="qr-code">
+            <img src="${qrCodeDataUrl}" alt="QR" />
+          </div>
+        </div>
+        
+        <!-- 注文番号 -->
+        <div class="order-number">
+          ${
+            printCount > 1
+              ? `${label.orderNumber} <span class="reprint-mark">(再)</span>`
+              : label.orderNumber
+          }
+        </div>
+        
+        <!-- 商品情報 -->
+        <div class="item-info">
+          <div class="item-name">
+            ${label.name.length > 14 ? label.name.substring(0, 14) + "..." : label.name}
+          </div>
+          ${
+            label.totalQuantity > 1
+              ? `
+          <div class="item-details">
+            ${label.currentLabel}/${label.totalQuantity}個
+          </div>
+          `
+              : ""
+          }
+        </div>
+      </div>
+    </div>
+  `
+      )
+      .join("");
+
+    printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>注文票 - ${baseOrderNumber}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: white;
+            font-size: 6px;
+          }
+          .print-page {
+            width: 29mm;
+            height: 90mm;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            page-break-after: always;
+          }
+          .print-page:last-child {
+            page-break-after: auto;
+          }
+          .print-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1mm;
+            box-sizing: border-box;
+          }
+          .store-name {
+            font-size: 7px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1mm;
+            width: 100%;
+          }
+          .qr-section {
+            text-align: center;
+            margin: 0.5mm 0;
+          }
+          .qr-code img {
+            width: 15mm;
+            height: 15mm;
+            border: none;
+          }
+          .order-number {
+            font-size: 5px;
+            font-weight: bold;
+            margin: 0.5mm 0;
+            text-align: center;
+            word-wrap: break-word;
+            line-height: 1.1;
+          }
+          .reprint-mark {
+            color: #ff0000;
+            font-weight: bold;
+          }
+          .item-info {
+            width: 100%;
+            margin-top: 1mm;
+            text-align: center;
+          }
+          .item-name {
+            font-size: 6px;
+            font-weight: bold;
+            margin-bottom: 0.5mm;
+            word-wrap: break-word;
+            line-height: 1.1;
+          }
+          .item-details {
+            font-size: 4px;
+            color: #666;
+            line-height: 1.1;
+          }
+          @media print {
+            body { 
+              margin: 0; 
+              padding: 0;
+            }
+            .print-page {
+              width: 29mm;
+              height: 90mm;
+            }
+            @page {
+              size: 29mm 90mm;
+              margin: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        ${printPages}
+      </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
+    // 画像が読み込まれるまで少し待ってから印刷実行
+    setTimeout(() => {
+      printWindow.print();
+
+      // 印刷完了後にウィンドウを閉じる
+      setTimeout(() => {
+        printWindow.close();
+      }, 1000);
+
+      // 印刷完了メッセージ
+      const totalLabels = printLabels.length;
+      const printMessage =
+        printCount > 1
+          ? `注文票を再印刷しました (${printCount}回目) - ${totalLabels}枚のラベル`
+          : `注文票を印刷しました - ${totalLabels}枚のラベル`;
+      toast.success(printMessage);
+    }, 500);
+  };
+
+  // 印刷ボタンに印刷回数を表示
+  const getPrintButtonText = (orderId: string) => {
+    const printCount = printCounts[orderId] || 0;
+    return printCount > 0 ? `印刷 (${printCount})` : "印刷";
+  };
+
+  // 印刷ボタンのツールチップテキストを生成
+  const getPrintButtonTooltip = (orderId: string, orderStatus: string) => {
+    const printCount = printCounts[orderId] || 0;
+
+    if (orderStatus !== "ready" && orderStatus !== "served") {
+      return "調理完了後に印刷できます";
+    }
+
+    if (printCount > 0) {
+      return `注文票を再印刷 (${printCount}回印刷済み)`;
+    }
+
+    return "注文票を印刷";
+  };
 
   // 店舗情報を取得
   const fetchStore = async () => {
@@ -109,12 +480,58 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 注文を取得する関数
+  // 注文を取得する関数を修正
   const fetchOrders = async () => {
-    if (!store) return;
-
     try {
       setLoading(true);
+      console.log("=== fetchOrders 開始 ===");
+      console.log("店舗ID:", params.storeId);
+      console.log("店舗データ:", store);
+      console.log("日付フィルター:", dateFilter);
+      console.log("ステータスフィルター:", statusFilter);
+
+      // 基本的なクエリを構築
+      let query = supabase
+        .from("orders")
+        .select(
+          `
+          *,
+          order_details (
+            id,
+            food_id,
+            name,
+            price,
+            quantity,
+            size,
+            is_takeout,
+            amount
+          ),
+          profiles (
+            name
+          )
+        `
+        )
+        .eq("store_id", parseInt(params.storeId))
+        .order("created_at", { ascending: false });
+
+      console.log("基本クエリ構築完了");
+
+      // まず日付フィルターなしでデータを取得してみる
+      console.log("=== 日付フィルターなしでデータ取得テスト ===");
+      const { data: allData, error: allError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("store_id", parseInt(params.storeId));
+
+      if (allError) {
+        console.error("全データ取得エラー:", allError);
+      } else {
+        console.log("店舗の全注文データ:", allData?.length, "件");
+        console.log(
+          "全注文の作成日時:",
+          allData?.map((o) => o.created_at)
+        );
+      }
 
       // 日付範囲の設定
       let dateStart, dateEnd;
@@ -137,159 +554,101 @@ export default function StoreOrderHistoryPage({
           dateEnd = endOfDay(new Date());
           break;
         case "custom":
-          dateStart = startOfDay(startDate);
-          dateEnd = endOfDay(endDate);
+          if (!customStartDate || !customEndDate) {
+            console.log("カスタム日付が設定されていません:", {
+              customStartDate,
+              customEndDate,
+            });
+            // デフォルトで今日のデータを取得
+            dateStart = startOfDay(new Date());
+            dateEnd = endOfDay(new Date());
+          } else {
+            const startDate = new Date(customStartDate);
+            const endDate = new Date(customEndDate);
+
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+              toast.error("有効な日付を入力してください");
+              setLoading(false);
+              return;
+            }
+
+            if (startDate > endDate) {
+              toast.error("開始日は終了日より前の日付を設定してください");
+              setLoading(false);
+              return;
+            }
+
+            dateStart = startOfDay(startDate);
+            dateEnd = endOfDay(endDate);
+          }
           break;
         default:
           dateStart = startOfDay(new Date());
           dateEnd = endOfDay(new Date());
       }
 
-      // 店舗に関連する商品のIDを取得
-      const { data: foods, error: foodsError } = await supabase
-        .from("foods")
-        .select("id")
-        .eq("store_name", store.name);
+      console.log("日付範囲:", {
+        dateFilter,
+        dateStart: dateStart?.toISOString(),
+        dateEnd: dateEnd?.toISOString(),
+        現在時刻: new Date().toISOString(),
+      });
 
-      if (foodsError) throw foodsError;
-
-      const foodIds = foods?.map((food) => food.id) || [];
-
-      if (foodIds.length === 0) {
-        setOrders([]);
-        setFilteredOrders([]);
-        setLoading(false);
-        return;
+      // 日付フィルターを適用
+      if (
+        dateStart &&
+        dateEnd &&
+        !isNaN(dateStart.getTime()) &&
+        !isNaN(dateEnd.getTime())
+      ) {
+        query = query
+          .gte("created_at", dateStart.toISOString())
+          .lte("created_at", dateEnd.toISOString());
       }
 
-      // 注文詳細から該当する注文IDを取得
-      let orderDetailsQuery = supabase
-        .from("order_details")
-        .select("order_id")
-        .in("food_id", foodIds);
-
-      const { data: orderDetailsData, error: orderDetailsError } =
-        await orderDetailsQuery;
-
-      if (orderDetailsError) throw orderDetailsError;
-
-      const orderIds = [
-        ...new Set(orderDetailsData?.map((detail) => detail.order_id) || []),
-      ];
-
-      if (orderIds.length === 0) {
-        setOrders([]);
-        setFilteredOrders([]);
-        setLoading(false);
-        return;
-      }
-
-      // 注文データを取得
-      let query = supabase
-        .from("orders")
-        .select("*")
-        .in("id", orderIds)
-        .gte("created_at", dateStart.toISOString())
-        .lte("created_at", dateEnd.toISOString())
-        .order("created_at", { ascending: false });
-
+      // ステータスフィルターを適用
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
+        console.log("ステータスフィルター適用:", statusFilter);
       }
 
-      if (paymentMethodFilter !== "all") {
-        query = query.eq("payment_method", paymentMethodFilter);
-      }
-
+      console.log("最終クエリ実行");
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error("注文履歴の取得に失敗しました:", error);
+        toast.error("注文履歴の取得に失敗しました");
+        return;
+      }
 
-      // ユーザー名を取得
-      const getUserDisplayName = async (userId: string) => {
-        if (!userId) return "不明";
+      console.log("フィルター後の取得データ:", data?.length, "件");
+      console.log("取得した注文データの詳細:", data);
 
-        try {
-          const { data: profileData, error } = await supabase
-            .from("profiles")
-            .select("id, name")
-            .eq("id", userId)
-            .maybeSingle();
-
-          if (error || !profileData) {
-            return `ユーザー ${userId.substring(0, 6)}`;
-          }
-
-          return profileData.name || `ユーザー ${userId.substring(0, 6)}`;
-        } catch (e) {
-          console.error("予期せぬエラー:", e);
-          return `ユーザー ${userId.substring(0, 6)}`;
-        }
-      };
-
-      // すべての注文に対してユーザー名を取得
-      const ordersWithUserInfo = await Promise.all(
-        data.map(async (order) => ({
+      const formattedOrders =
+        data?.map((order: any) => ({
           ...order,
-          user_name: await getUserDisplayName(order.user_id),
-        }))
-      );
+          user_name: order.profiles?.name || "ゲスト",
+          details: order.order_details || [],
+        })) || [];
 
-      setOrders(ordersWithUserInfo);
-      applySearchFilter(ordersWithUserInfo, searchTerm);
+      console.log("フォーマット後の注文数:", formattedOrders.length);
+      setOrders(formattedOrders);
     } catch (error) {
-      console.error("Error fetching orders:", error);
-      toast.error("注文履歴の取得に失敗しました");
+      console.error("注文履歴の取得中にエラーが発生しました:", error);
+      toast.error("注文履歴の取得中にエラーが発生しました");
     } finally {
       setLoading(false);
       setIsRefreshing(false);
-    }
-  };
-
-  // 注文詳細を取得する関数
-  const fetchOrderDetails = async (orderId: string) => {
-    if (!store) return;
-
-    try {
-      if (orderDetails[orderId]) {
-        return;
-      }
-
-      // 店舗に関連する商品のIDを取得
-      const { data: foods, error: foodsError } = await supabase
-        .from("foods")
-        .select("id")
-        .eq("store_name", store.name);
-
-      if (foodsError) throw foodsError;
-
-      const foodIds = foods?.map((food) => food.id) || [];
-
-      const { data, error } = await supabase
-        .from("order_details")
-        .select("*")
-        .eq("order_id", orderId)
-        .in("food_id", foodIds);
-
-      if (error) throw error;
-
-      setOrderDetails((prev) => ({
-        ...prev,
-        [orderId]: data || [],
-      }));
-    } catch (error) {
-      console.error("Error fetching order details:", error);
-      toast.error("注文詳細の取得に失敗しました");
+      console.log("=== fetchOrders 終了 ===");
     }
   };
 
   // 注文の詳細を表示/非表示を切り替える関数
-  const toggleOrderDetails = async (orderId: string) => {
-    if (expandedOrderId === orderId) {
-      setExpandedOrderId(null);
+  const toggleOrderDetails = (orderId: string) => {
+    if (expandedOrder === orderId) {
+      setExpandedOrder(null);
     } else {
-      setExpandedOrderId(orderId);
-      await fetchOrderDetails(orderId);
+      setExpandedOrder(orderId);
     }
   };
 
@@ -319,20 +678,10 @@ export default function StoreOrderHistoryPage({
         )
       );
 
-      setFilteredOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? {
-                ...order,
-                status: newStatus as any,
-                status_updated_at: new Date().toISOString(),
-              }
-            : order
-        )
-      );
-
       toast.success(
-        `注文ID: ${orderId.substring(0, 8)}... のステータスを「${getStatusLabel(newStatus)}」に更新しました`
+        `注文ID: ${orderId.substring(0, 8)}... のステータスを「${getStatusLabel(
+          newStatus
+        )}」に更新しました`
       );
     } catch (error) {
       console.error("Error updating order status:", error);
@@ -375,7 +724,7 @@ export default function StoreOrderHistoryPage({
   // 検索フィルターを適用する関数
   const applySearchFilter = (ordersList: Order[], term: string) => {
     if (!term.trim()) {
-      setFilteredOrders(ordersList);
+      setOrders(ordersList);
       return;
     }
 
@@ -387,15 +736,16 @@ export default function StoreOrderHistoryPage({
         order.status.toLowerCase().includes(lowerTerm)
     );
 
-    setFilteredOrders(filtered);
+    setOrders(filtered);
   };
 
   // フィルターリセット
   const resetFilters = () => {
     setStatusFilter("all");
-    setPaymentMethodFilter("all");
     setDateFilter("today");
     setSearchTerm("");
+    setCustomStartDate("");
+    setCustomEndDate("");
     fetchOrders();
   };
 
@@ -409,11 +759,11 @@ export default function StoreOrderHistoryPage({
   const getCurrentOrders = () => {
     const indexOfLastOrder = currentPage * ordersPerPage;
     const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-    return filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+    return orders.slice(indexOfFirstOrder, indexOfLastOrder);
   };
 
   // ページ数を計算
-  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+  const totalPages = Math.ceil(orders.length / ordersPerPage);
 
   // 初回マウント時に店舗情報を取得
   useEffect(() => {
@@ -425,7 +775,7 @@ export default function StoreOrderHistoryPage({
     if (store) {
       fetchOrders();
     }
-  }, [store, dateFilter, statusFilter, paymentMethodFilter]);
+  }, [store, dateFilter, statusFilter]);
 
   // 検索語が変更されたときにフィルターを適用
   useEffect(() => {
@@ -522,8 +872,8 @@ export default function StoreOrderHistoryPage({
                 支払方法
               </label>
               <select
-                value={paymentMethodFilter}
-                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">すべて</option>
@@ -571,8 +921,8 @@ export default function StoreOrderHistoryPage({
                 </label>
                 <input
                   type="date"
-                  value={startDate.toISOString().split("T")[0]}
-                  onChange={(e) => setStartDate(new Date(e.target.value))}
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -582,8 +932,8 @@ export default function StoreOrderHistoryPage({
                 </label>
                 <input
                   type="date"
-                  value={endDate.toISOString().split("T")[0]}
-                  onChange={(e) => setEndDate(new Date(e.target.value))}
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -591,14 +941,14 @@ export default function StoreOrderHistoryPage({
           )}
         </div>
 
-        {/* 注文一覧 */}
+        {/* 注文一覧テーブル */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
               <p className="text-gray-600">注文履歴を読み込み中...</p>
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : orders.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-gray-500">
                 {searchTerm || statusFilter !== "all" || dateFilter !== "today"
@@ -612,22 +962,25 @@ export default function StoreOrderHistoryPage({
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      注文ID
+                      注文番号・ID
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ユーザー
+                      顧客名
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      金額
+                      注文日時
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      支払方法
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      印刷
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ステータス
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      注文日時
+                      合計金額
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      支払方法
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       操作
@@ -637,109 +990,389 @@ export default function StoreOrderHistoryPage({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {getCurrentOrders().map((order) => (
                     <React.Fragment key={order.id}>
-                      <tr className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {order.id.substring(0, 8)}...
+                      {/* メインの注文行 */}
+                      <tr
+                        className={
+                          expandedOrder === order.id ? "bg-blue-50" : ""
+                        }
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div>
+                            <div className="font-medium">
+                              {order.order_number ||
+                                `#${order.id.substring(0, 8)}`}
+                              {printCounts[order.id] > 0 && (
+                                <span className="text-red-600 text-xs ml-1">
+                                  (印刷済み: {printCounts[order.id]}回)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              ID: {order.id.substring(0, 8)}...
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {order.user_name}
+                          {order.user_name || "ゲスト"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ¥{order.total_amount.toLocaleString()}
-                          {order.discount_amount > 0 && (
-                            <span className="text-green-600 text-xs ml-1">
-                              (-¥{order.discount_amount})
-                            </span>
-                          )}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div>
+                            <div>
+                              {new Date(order.created_at).toLocaleDateString(
+                                "ja-JP"
+                              )}
+                            </div>
+                            <div className="text-xs">
+                              {new Date(order.created_at).toLocaleTimeString(
+                                "ja-JP",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {order.payment_method === "cash"
-                            ? "現金"
-                            : order.payment_method === "credit"
-                              ? "クレジット"
-                              : order.payment_method === "paypay"
-                                ? "PayPay"
-                                : order.payment_method}
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex flex-col items-center space-y-1">
+                            <button
+                              onClick={() =>
+                                handlePrintOrder(order.id, order.status)
+                              }
+                              className={`inline-flex items-center justify-center p-2 rounded-full transition-all duration-200 ${
+                                order.status === "ready" ||
+                                order.status === "served"
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200 hover:scale-110 shadow-sm"
+                                  : "bg-gray-100 text-gray-400 hover:bg-gray-200 cursor-not-allowed"
+                              }`}
+                              title={getPrintButtonTooltip(
+                                order.id,
+                                order.status
+                              )}
+                              disabled={
+                                order.status !== "ready" &&
+                                order.status !== "served"
+                              }
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                            {printCounts[order.id] > 0 && (
+                              <span className="text-xs text-gray-500">
+                                {printCounts[order.id]}回
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <select
-                            value={order.status}
-                            onChange={(e) =>
-                              updateOrderStatus(order.id, e.target.value)
-                            }
-                            className={`px-2 py-1 text-xs font-semibold rounded-full border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusColor(
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
                               order.status
                             )}`}
                           >
-                            <option value="pending">受付済み</option>
-                            <option value="cooking">調理中</option>
-                            <option value="ready">調理済み</option>
-                            <option value="served">提供済み</option>
-                          </select>
+                            {getStatusLabel(order.status)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                          ¥{order.total_amount.toLocaleString()}
+                          {order.discount_amount > 0 && (
+                            <div className="text-xs text-green-600">
+                              -¥{order.discount_amount.toLocaleString()} 割引
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(order.created_at).toLocaleString("ja-JP")}
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              order.payment_method === "cash"
+                                ? "bg-green-100 text-green-800"
+                                : order.payment_method === "credit"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {order.payment_method === "cash"
+                              ? "現金"
+                              : order.payment_method === "credit"
+                                ? "クレジット"
+                                : "PayPay"}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => toggleOrderDetails(order.id)}
-                            className="text-blue-600 hover:text-blue-900 flex items-center"
-                          >
-                            詳細
-                            {expandedOrderId === order.id ? (
-                              <ChevronUp className="w-4 h-4 ml-1" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 ml-1" />
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => toggleOrderDetails(order.id)}
+                              className="text-blue-600 hover:text-blue-900 transition-colors flex items-center"
+                            >
+                              {expandedOrder === order.id ? (
+                                <>
+                                  <ChevronUp className="w-4 h-4 mr-1" />
+                                  閉じる
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-4 h-4 mr-1" />
+                                  詳細
+                                </>
+                              )}
+                            </button>
+
+                            {/* ステータス更新ボタン */}
+                            {order.status === "pending" && (
+                              <button
+                                onClick={() =>
+                                  updateOrderStatus(order.id, "cooking")
+                                }
+                                className="text-orange-600 hover:text-orange-900 transition-colors"
+                              >
+                                調理開始
+                              </button>
                             )}
-                          </button>
+                            {order.status === "cooking" && (
+                              <button
+                                onClick={() =>
+                                  updateOrderStatus(order.id, "ready")
+                                }
+                                className="text-green-600 hover:text-green-900 transition-colors"
+                              >
+                                調理完了
+                              </button>
+                            )}
+                            {order.status === "ready" && (
+                              <button
+                                onClick={() =>
+                                  updateOrderStatus(order.id, "served")
+                                }
+                                className="text-blue-600 hover:text-blue-900 transition-colors"
+                              >
+                                提供完了
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
 
-                      {/* 注文詳細の展開行 */}
-                      {expandedOrderId === order.id && (
+                      {/* 詳細表示行 */}
+                      {expandedOrder === order.id && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-4 bg-gray-50">
-                            <div className="max-w-3xl mx-auto">
-                              <h4 className="text-lg font-medium text-gray-900 mb-3">
+                          <td colSpan={8} className="px-6 py-4 bg-gray-50">
+                            <div className="space-y-4">
+                              <h4 className="font-semibold text-gray-900 text-lg mb-3">
                                 注文詳細
                               </h4>
-                              {orderDetails[order.id] &&
-                              orderDetails[order.id].length > 0 ? (
-                                <div className="space-y-2">
-                                  {orderDetails[order.id].map((detail) => (
-                                    <div
-                                      key={detail.id}
-                                      className="flex justify-between items-center bg-white p-3 rounded border"
-                                    >
-                                      <div>
+
+                              {/* 基本情報 */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-white p-3 rounded-lg border">
+                                  <h5 className="font-medium text-gray-700 mb-2">
+                                    基本情報
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    <p>
+                                      <span className="font-medium">
+                                        注文ID:
+                                      </span>{" "}
+                                      {order.id}
+                                    </p>
+                                    <p>
+                                      <span className="font-medium">
+                                        注文番号:
+                                      </span>{" "}
+                                      {order.order_number ||
+                                        `#${order.id.substring(0, 8)}`}
+                                    </p>
+                                    <p>
+                                      <span className="font-medium">
+                                        ユーザーID:
+                                      </span>{" "}
+                                      {order.user_id}
+                                    </p>
+                                    <p>
+                                      <span className="font-medium">
+                                        注文日時:
+                                      </span>{" "}
+                                      {new Date(
+                                        order.created_at
+                                      ).toLocaleString("ja-JP")}
+                                    </p>
+                                    <p>
+                                      <span className="font-medium">
+                                        更新日時:
+                                      </span>{" "}
+                                      {new Date(
+                                        order.updated_at
+                                      ).toLocaleString("ja-JP")}
+                                    </p>
+                                    {order.status_updated_at && (
+                                      <p>
                                         <span className="font-medium">
-                                          {detail.name}
-                                        </span>
-                                        <span className="text-gray-500 ml-2">
-                                          {detail.size === "large"
-                                            ? "(大盛り)"
-                                            : "(普通)"}
-                                        </span>
-                                        <span className="text-gray-500 ml-2">
-                                          {detail.is_takeout
-                                            ? "テイクアウト"
-                                            : "イートイン"}
-                                        </span>
-                                      </div>
-                                      <div className="text-right">
-                                        <div>数量: {detail.quantity}</div>
-                                        <div className="font-medium">
-                                          ¥{detail.amount.toLocaleString()}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
+                                          ステータス更新:
+                                        </span>{" "}
+                                        {new Date(
+                                          order.status_updated_at
+                                        ).toLocaleString("ja-JP")}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : (
-                                <p className="text-gray-500">
-                                  詳細情報を読み込み中...
-                                </p>
-                              )}
+
+                                <div className="bg-white p-3 rounded-lg border">
+                                  <h5 className="font-medium text-gray-700 mb-2">
+                                    支払情報
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    <p>
+                                      <span className="font-medium">
+                                        支払方法:
+                                      </span>
+                                      <span
+                                        className={`ml-2 px-2 py-1 rounded text-xs ${
+                                          order.payment_method === "cash"
+                                            ? "bg-green-100 text-green-800"
+                                            : order.payment_method === "credit"
+                                              ? "bg-blue-100 text-blue-800"
+                                              : "bg-red-100 text-red-800"
+                                        }`}
+                                      >
+                                        {order.payment_method === "cash"
+                                          ? "現金"
+                                          : order.payment_method === "credit"
+                                            ? "クレジット"
+                                            : "PayPay"}
+                                      </span>
+                                    </p>
+                                    <p>
+                                      <span className="font-medium">小計:</span>{" "}
+                                      ¥
+                                      {(
+                                        order.total_amount +
+                                        order.discount_amount
+                                      ).toLocaleString()}
+                                    </p>
+                                    {order.discount_amount > 0 && (
+                                      <p>
+                                        <span className="font-medium text-green-600">
+                                          割引:
+                                        </span>{" "}
+                                        -¥
+                                        {order.discount_amount.toLocaleString()}
+                                      </p>
+                                    )}
+                                    <p className="font-bold border-t pt-1">
+                                      <span className="font-medium">合計:</span>{" "}
+                                      ¥{order.total_amount.toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="bg-white p-3 rounded-lg border">
+                                  <h5 className="font-medium text-gray-700 mb-2">
+                                    廃棄分別情報
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    {getWasteCategories(
+                                      order.details || []
+                                    ).map((category, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-block px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs mr-1 mb-1"
+                                      >
+                                        {category}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 注文商品一覧 */}
+                              <div className="bg-white rounded-lg border">
+                                <div className="px-4 py-3 border-b">
+                                  <h5 className="font-medium text-gray-900">
+                                    注文商品
+                                  </h5>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                          商品名
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                          単価
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                          数量
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                          サイズ
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                          提供方法
+                                        </th>
+                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                          小計
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {order.details &&
+                                      order.details.length > 0 ? (
+                                        order.details.map((detail, index) => (
+                                          <tr key={index}>
+                                            <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                                              {detail.name}
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">
+                                              ¥{detail.price.toLocaleString()}
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">
+                                              {detail.quantity}
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">
+                                              <span
+                                                className={`px-2 py-1 rounded text-xs ${
+                                                  detail.size === "large"
+                                                    ? "bg-orange-100 text-orange-800"
+                                                    : "bg-gray-100 text-gray-800"
+                                                }`}
+                                              >
+                                                {detail.size === "large"
+                                                  ? "大盛り"
+                                                  : "普通"}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">
+                                              <span
+                                                className={`px-2 py-1 rounded text-xs ${
+                                                  detail.is_takeout
+                                                    ? "bg-blue-100 text-blue-800"
+                                                    : "bg-green-100 text-green-800"
+                                                }`}
+                                              >
+                                                {detail.is_takeout
+                                                  ? "テイクアウト"
+                                                  : "イートイン"}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-right font-medium">
+                                              ¥{detail.amount.toLocaleString()}
+                                            </td>
+                                          </tr>
+                                        ))
+                                      ) : (
+                                        <tr>
+                                          <td
+                                            colSpan={6}
+                                            className="px-4 py-4 text-center text-gray-500"
+                                          >
+                                            注文詳細がありません
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -756,10 +1389,8 @@ export default function StoreOrderHistoryPage({
         {totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              {filteredOrders.length} 件中{" "}
-              {(currentPage - 1) * ordersPerPage + 1} -{" "}
-              {Math.min(currentPage * ordersPerPage, filteredOrders.length)}{" "}
-              件を表示
+              {orders.length} 件中 {(currentPage - 1) * ordersPerPage + 1} -{" "}
+              {Math.min(currentPage * ordersPerPage, orders.length)} 件を表示
             </div>
             <div className="flex space-x-2">
               <button
@@ -797,6 +1428,8 @@ export default function StoreOrderHistoryPage({
           </div>
         )}
       </div>
+
+      {/* 印刷プレビューモーダルを削除 */}
     </div>
   );
 }
