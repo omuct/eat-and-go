@@ -54,11 +54,17 @@ export default function AdminDashboard() {
       path: "/admin/shops",
     },
     {
-      title: "メール管理",
-      description: "認証済みメールアドレスの管理・一括同期",
-      icon: <Mail size={24} />,
-      path: "/admin/email",
+      title: "場所管理",
+      description: "会場・地図の新規登録・編集・公開設定",
+      icon: <Store size={24} />,
+      path: "/admin/map",
     },
+    // {
+    //   title: "メール管理",
+    //   description: "認証済みメールアドレスの管理・一括同期",
+    //   icon: <Mail size={24} />,
+    //   path: "/admin/email",
+    // },
   ];
 
   return (

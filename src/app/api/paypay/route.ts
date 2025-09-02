@@ -139,7 +139,7 @@ export async function POST(request: Request) {
         currency: "JPY",
       },
       codeType: "ORDER_QR",
-      orderDescription: orderDescription || "学食アプリ - 商品注文",
+      orderDescription: orderDescription || "EAT & GO - 商品注文",
       isAuthorization: false,
       redirectUrl,
       redirectType: "WEB_LINK",

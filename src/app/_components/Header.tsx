@@ -78,6 +78,30 @@ const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
         )}
         <span className="text-xs mt-1 sm:hidden">カート</span>
       </div>
+      {/* 地図リンクアイコン追加 */}
+      <div
+        onClick={() => {
+          router.push("/orders/map");
+        }}
+        className="flex flex-col items-center cursor-pointer hover:text-blue-600 transition-colors"
+      >
+        {/* LucideのMapPinアイコンを利用 */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 11c1.104 0 2-.896 2-2s-.896-2-2-2-2 .896-2 2 .896 2 2 2zm0 10c-4.418 0-8-4.03-8-9 0-4.418 3.582-8 8-8s8 3.582 8 8c0 4.97-3.582 9-8 9z"
+          />
+        </svg>
+        <span className="text-xs mt-1">地図</span>
+      </div>
       {canAccessAdmin && (
         <div
           onClick={() => {
