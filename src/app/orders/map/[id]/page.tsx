@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Header from "@/app/_components/Header";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -12,7 +13,21 @@ interface Place {
 }
 
 export default function PlaceMapPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id;
+  // ゴミ箱データ取得
+  const [bins, setBins] = useState<any[]>([]);
+  useEffect(() => {
+    if (!id) return;
+    const fetchBins = async () => {
+      const { data } = await supabase
+        .from("trash_bins")
+        .select("id, name, lat, lng, place_id, amount")
+        .eq("place_id", id);
+      setBins(data || []);
+    };
+    fetchBins();
+  }, [id]);
   const [place, setPlace] = useState<Place | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,34 +48,89 @@ export default function PlaceMapPage() {
   }, [id]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {loading ? (
-        <div>読み込み中...</div>
-      ) : place ? (
-        <>
-          <h1 className="text-2xl font-bold mb-4">{place.name}</h1>
-          {place.description && (
-            <div className="mb-2 text-gray-600">{place.description}</div>
-          )}
-          <div className="mb-6">
-            {place.googlemapurl ? (
-              <iframe
-                src={place.googlemapurl}
-                width="100%"
-                height="400"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            ) : (
-              <div>GoogleマップURLが登録されていません</div>
+    <>
+      <Header />
+      <div className="min-h-screen bg-gray-50 p-6">
+        {loading ? (
+          <div>読み込み中...</div>
+        ) : place ? (
+          <>
+            <h1 className="text-2xl font-bold mb-4">{place.name}</h1>
+            {place.description && (
+              <div className="mb-2 text-gray-600">{place.description}</div>
             )}
-          </div>
-        </>
-      ) : (
-        <div>場所が見つかりません</div>
-      )}
-    </div>
+            <div className="mb-6 flex justify-center">
+              {place.googlemapurl ? (
+                <div
+                  style={{ maxWidth: 900, width: "100%", position: "relative" }}
+                >
+                  <iframe
+                    src={place.googlemapurl}
+                    width="100%"
+                    height="600"
+                    style={{
+                      border: 0,
+                      display: "block",
+                      margin: "0 auto",
+                      pointerEvents: "none",
+                    }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                  {/* ゴミ箱画像を地図上に重ねて表示 */}
+                  {bins.map((bin) => (
+                    <div
+                      key={bin.id}
+                      style={{
+                        position: "absolute",
+                        left: `${((bin.lng - 135.0) / 0.1) * 100}%`,
+                        top: `${((bin.lat - 35.0) / 0.1) * 100}%`,
+                        width: 32,
+                        textAlign: "center",
+                        transform: "translate(-50%, -100%)",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <img
+                        src={
+                          bin.amount >= 90
+                            ? "/gomibako_full.png"
+                            : "/gomibako_empty.png"
+                        }
+                        alt="trash bin"
+                        title={bin.name}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          display: "block",
+                          margin: "0 auto",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "#1e293b",
+                          background: "rgba(255,255,255,0.8)",
+                          borderRadius: 4,
+                          padding: "0 4px",
+                          marginTop: 2,
+                          display: "inline-block",
+                        }}
+                      >
+                        {bin.amount != null ? `${bin.amount}%` : "0%"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>GoogleマップURLが登録されていません</div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div>場所が見つかりません</div>
+        )}
+      </div>
+    </>
   );
 }

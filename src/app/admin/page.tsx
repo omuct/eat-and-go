@@ -59,6 +59,12 @@ export default function AdminDashboard() {
       icon: <Store size={24} />,
       path: "/admin/map",
     },
+    {
+      title: "ゴミ箱管理",
+      description: "地図上のゴミ箱の追加・一覧・ごみ量の確認",
+      icon: <Store size={24} />,
+      path: "/admin/trash",
+    },
     // {
     //   title: "メール管理",
     //   description: "認証済みメールアドレスの管理・一括同期",
