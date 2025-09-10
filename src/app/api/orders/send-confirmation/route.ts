@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     console.log("Request body:", body);
 
     const {
+      to,
       orderId,
       orderNumber,
       customerName,
@@ -24,8 +25,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // 必須フィールドの検証
-    if (!orderId || !orderNumber || !orderItems || !totalAmount) {
+    if (!to || !orderId || !orderNumber || !orderItems || !totalAmount) {
       console.log("Missing required fields:", {
+        to,
         orderId,
         orderNumber,
         orderItems,
@@ -36,30 +38,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Supabaseで注文情報からuser_idを取得
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .select("user_id")
-      .eq("id", orderId)
-      .single();
-    if (orderError || !orderData?.user_id) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
-
-    // Supabase Authからemailを取得
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("email")
-      .eq("id", orderData.user_id)
-      .single();
-    if (userError || !userData?.email) {
-      return NextResponse.json(
-        { error: "User email not found" },
-        { status: 404 }
-      );
-    }
-    const to = userData.email;
 
     console.log("Rendering email template...");
 
@@ -78,7 +56,7 @@ export async function POST(request: NextRequest) {
     console.log("Email template rendered successfully");
     console.log("Sending email via Resend...");
 
-    // Supabaseから認証済みメールリスト取得
+    // 認証済みメールリスト取得
     let verifiedEmails: string[] = [];
     try {
       const { data: emailRows, error: emailError } = await supabase

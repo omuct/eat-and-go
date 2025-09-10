@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient"; // Supabaseクライアントのパスを適宜修正してください
+import { useEffect, useState, Suspense, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import { CheckCircle, XCircle, Clock, RefreshCw } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
@@ -44,165 +44,107 @@ function LoadingComponent() {
 // メインのコンテンツコンポーネント
 function PaymentStatusContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("PENDING");
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 10; // 最大10回まで確認
+
+  // useRefを使って「処理開始フラグ」を管理
+  const hasStartedProcessing = useRef(false);
 
   useEffect(() => {
-    const checkPaymentStatus = async () => {
+    // このuseEffectは初回の一度しか実行されない
+    if (hasStartedProcessing.current) {
+      return; // 既に処理が開始されていたら何もしない
+    }
+    hasStartedProcessing.current = true; // 処理開始のフラグを立てる
+
+    const processPayment = async () => {
       try {
-        // URLパラメータから決済IDを取得 (以前は params.id でしたが、より柔軟な searchParams に変更)
-        const merchantPaymentId = searchParams.get("merchantPaymentId");
-
-        // ローカルストレージから決済データを取得
-        let savedPaymentData = null;
-        try {
-          savedPaymentData = localStorage.getItem("paypay_payment_data");
-        } catch (e) {
-          console.log("localStorage is not available.");
-        }
-
-        let paymentInfo = null;
-        if (savedPaymentData) {
-          paymentInfo = JSON.parse(savedPaymentData);
-        }
-
-        if (!merchantPaymentId && !paymentInfo?.merchantPaymentId) {
-          toast.error("決済IDが見つかりません");
+        const savedPaymentData = localStorage.getItem("paypay_payment_data");
+        if (!savedPaymentData) {
+          toast.error("決済情報が見つかりません。");
           router.push("/orders/cart");
           return;
         }
+        const paymentInfo = JSON.parse(savedPaymentData);
 
-        const targetPaymentId =
-          merchantPaymentId || paymentInfo.merchantPaymentId;
+        // 最大10回、3秒ごとにステータスを確認するループ
+        for (let i = 0; i < 10; i++) {
+          const response = await axios.post("/api/checkPaymentStatus", {
+            id: paymentInfo.merchantPaymentId,
+          });
 
-        const response = await axios.post("/api/checkPaymentStatus", {
-          id: targetPaymentId,
-        });
-
-        if (response.data?.success) {
-          const status: PaymentStatus = response.data.status;
-          setPaymentStatus(status);
-
-          // 支払いデータをステートに保存
-          if (response.data.merchantPaymentId) {
-            setPaymentData({
-              merchantPaymentId: response.data.merchantPaymentId,
-              amount: response.data.amount || paymentInfo?.amount || 0,
-              orderDescription:
-                response.data.orderDescription || "学食アプリ注文",
-              acceptedAt: response.data.acceptedAt,
-              status: status,
-            });
-          }
+          const status: PaymentStatus = response.data?.status || "UNKNOWN";
 
           if (status === "COMPLETED") {
-            toast.success("決済が完了しました！");
-            await createOrder(paymentInfo);
-            setTimeout(() => {
-              router.push("/orders/complete"); // 完了ページへ
-            }, 3000);
+            setPaymentStatus("COMPLETED");
+            setPaymentData(response.data?.data);
+            toast.success("決済が完了しました！注文を作成します...");
+
+            // 注文作成処理
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (!session) throw new Error("認証情報が見つかりません。");
+
+            const createOrderResponse = await axios.post(
+              "/api/orders/create-from-paypay",
+              {
+                userId: paymentInfo.userId,
+                cartItems: paymentInfo.cartItems,
+                merchantPaymentId: paymentInfo.merchantPaymentId,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              }
+            );
+
+            if (
+              createOrderResponse.data?.success ||
+              createOrderResponse.data?.message
+            ) {
+              localStorage.removeItem("paypay_payment_data");
+              const orderId = createOrderResponse.data.orderId;
+              router.push(`/orders/complete?orderId=${orderId}`);
+              return; // 処理成功、ループを抜ける
+            } else {
+              throw new Error(
+                createOrderResponse.data?.details || "注文作成に失敗しました"
+              );
+            }
           } else if (status === "FAILED" || status === "CANCELED") {
-            toast.error("決済が失敗またはキャンセルされました");
+            setPaymentStatus(status);
             setLoading(false);
-          } else if (status === "PENDING" && retryCount < maxRetries) {
-            // 3秒後に再試行
-            setTimeout(() => {
-              setRetryCount((prev) => prev + 1);
-            }, 3000);
-          } else {
-            // PENDINGのままタイムアウトした場合
-            setLoading(false);
+            return; // 処理失敗、ループを抜ける
           }
-        } else {
-          // APIからの応答が 'success: false' の場合
-          if (retryCount < maxRetries) {
-            setTimeout(() => setRetryCount((prev) => prev + 1), 3000);
-          } else {
-            setPaymentStatus("FAILED");
-            setLoading(false);
-            toast.error("決済ステータスの確認に失敗しました");
-          }
+
+          // 3秒待機
+          await new Promise((resolve) => setTimeout(resolve, 3000));
         }
+
+        // ループがタイムアウトした場合
+        setPaymentStatus("FAILED"); // タイムアウトを失敗として扱う
+        setLoading(false);
+        toast.error("決済の確認がタイムアウトしました。");
       } catch (error) {
-        console.error("決済ステータス確認エラー:", error);
-        if (retryCount < maxRetries) {
-          setTimeout(() => setRetryCount((prev) => prev + 1), 3000);
-        } else {
-          setPaymentStatus("FAILED");
-          setLoading(false);
-          toast.error("決済ステータスの確認中にエラーが発生しました");
-        }
+        setPaymentStatus("FAILED");
+        setLoading(false);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "決済処理中にエラーが発生しました";
+        toast.error(errorMessage);
       }
     };
 
-    checkPaymentStatus();
-  }, [retryCount, router, searchParams]);
-
-  // 注文データを作成する関数
-  const createOrder = async (paymentInfo: any) => {
-    if (!paymentInfo) return;
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("セッションが見つかりません");
-      }
-
-      const orderData = {
-        user_id: session.user.id,
-        total_amount: paymentInfo.amount,
-        discount_amount: 0,
-        payment_method: "paypay",
-        payment_status: "completed",
-        created_at: new Date().toISOString(),
-      };
-
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert(orderData)
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const orderItems = paymentInfo.cartItems.map((item: any) => ({
-        order_id: order.id,
-        food_id: item.food_id,
-        quantity: item.quantity,
-        price: item.price,
-        size: item.size,
-        is_takeout: item.is_takeout,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
-      if (itemsError) throw itemsError;
-
-      const { error: cartError } = await supabase
-        .from("cart")
-        .delete()
-        .eq("user_id", session.user.id);
-      if (cartError) throw cartError;
-
-      localStorage.removeItem("paypay_payment_data");
-      console.log("注文作成完了:", order);
-    } catch (error) {
-      console.error("注文作成処理エラー:", error);
-      toast.error("注文データの作成に失敗しました。");
-    }
-  };
+    processPayment();
+  }, []); // 依存配列を空にすることで、初回の一度だけ実行される
 
   // 再確認ボタンのハンドラ
   const handleRetryCheck = () => {
-    setLoading(true);
-    setRetryCount(0); // リトライカウントをリセットして再開
+    window.location.reload(); // ページをリロードして再試行
   };
 
   const getStatusIcon = () => {
@@ -276,16 +218,14 @@ function PaymentStatusContent() {
           {loading && paymentStatus === "PENDING" && (
             <div className="mb-6">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-600">
-                確認中... ({retryCount + 1}/{maxRetries})
-              </p>
+              <p className="text-sm text-gray-600">確認中...</p>
             </div>
           )}
 
           <div className="space-y-4">
             {paymentStatus === "COMPLETED" && (
               <div className="text-green-600 font-medium">
-                3秒後に完了ページに移動します...
+                完了ページに移動します...
               </div>
             )}
 
@@ -300,27 +240,25 @@ function PaymentStatusContent() {
               </div>
             )}
 
-            {!loading &&
-              retryCount >= maxRetries &&
-              paymentStatus === "PENDING" && (
-                <div className="space-y-2">
-                  <p className="text-orange-600 text-sm">
-                    決済ステータスの確認がタイムアウトしました
-                  </p>
-                  <button
-                    onClick={handleRetryCheck}
-                    className="w-full bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    再度確認する
-                  </button>
-                  <button
-                    onClick={() => router.push("/orders/cart")}
-                    className="w-full bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                    カートに戻る
-                  </button>
-                </div>
-              )}
+            {!loading && paymentStatus === "PENDING" && (
+              <div className="space-y-2">
+                <p className="text-orange-600 text-sm">
+                  決済ステータスの確認がタイムアウトしました
+                </p>
+                <button
+                  onClick={handleRetryCheck}
+                  className="w-full bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  再度確認する
+                </button>
+                <button
+                  onClick={() => router.push("/orders/cart")}
+                  className="w-full bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  カートに戻る
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
