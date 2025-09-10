@@ -42,11 +42,15 @@ export async function sendOrderConfirmationEmail({
       };
     }
 
-    const response = await fetch("/api/orders/send-confirmation", {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const url = new URL("/api/orders/send-confirmation", baseUrl);
+
+    const response = await fetch(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         orderId,
+        to,
         orderNumber,
         customerName,
         orderItems,
