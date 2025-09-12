@@ -20,8 +20,8 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import React from "react";
-// @ts-ignore
 import QRCode from "qrcode";
+import axios from "axios";
 
 interface OrderDetail {
   id: string;
@@ -689,6 +689,55 @@ export default function StoreOrderHistoryPage({
     }
   };
 
+  // 「調理完了」ボタンが押されたときの専用処理
+  const handleMarkAsReady = async (orderId: string) => {
+    try {
+      // --- ここからが前回の成功パターンです ---
+      // 1. 現在のセッションからアクセストークンを取得
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("認証情報が見つかりません。再ログインしてください。");
+        return;
+      }
+
+      // 2. 新しいAPIを、認証ヘッダーを付けて呼び出す
+      const response = await axios.post(
+        "/api/orders/mark-as-ready",
+        { orderId },
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+      // --- ここまで ---
+
+      if (response.data.success) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId
+              ? {
+                  ...order,
+                  status: "ready" as const,
+                  status_updated_at: new Date().toISOString(),
+                }
+              : order
+          )
+        );
+        toast.success(
+          `注文ID: ${orderId.substring(0, 8)}... の準備が完了し、お客様に通知しました`
+        );
+      } else {
+        throw new Error(response.data.error || "APIエラー");
+      }
+    } catch (error) {
+      console.error("Error marking order as ready:", error);
+      toast.error("準備完了の処理に失敗しました");
+    }
+  };
+
   // ステータスの日本語表示
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -1129,8 +1178,8 @@ export default function StoreOrderHistoryPage({
                             )}
                             {order.status === "cooking" && (
                               <button
-                                onClick={() =>
-                                  updateOrderStatus(order.id, "ready")
+                                onClick={
+                                  () => handleMarkAsReady(order.id) // updateOrderStatus から handleMarkAsReady へ
                                 }
                                 className="text-green-600 hover:text-green-900 transition-colors"
                               >
