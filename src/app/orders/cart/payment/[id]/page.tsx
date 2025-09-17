@@ -239,30 +239,6 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                   </div>
                 </label>
 
-                <label
-                  className={`border rounded-lg p-4 flex items-center cursor-pointer ${
-                    paymentMethod === "credit"
-                      ? "border-blue-500 bg-blue-50"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="credit"
-                    checked={paymentMethod === "credit"}
-                    onChange={() => setPaymentMethod("credit")}
-                    className="mr-3"
-                  />
-                  <CreditCard size={24} className="mr-3 text-gray-600" />
-                  <div>
-                    <p className="font-medium">クレジットカード</p>
-                    <p className="text-sm text-gray-500">
-                      商品受け取り時にお支払いください
-                    </p>
-                  </div>
-                </label>
-
                 {/* PayPay決済オプション */}
                 <label
                   className={`border rounded-lg p-4 flex items-center cursor-pointer ${

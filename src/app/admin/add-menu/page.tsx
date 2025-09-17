@@ -413,7 +413,7 @@ export default function MenuManagementStorePage() {
                     onClick={() => router.push("/admin")}
                     className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    管理者画面に戻る
+                    管理者画面一覧に戻る
                   </button>
                 </>
               ) : (

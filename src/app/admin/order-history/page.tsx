@@ -313,7 +313,6 @@ export default function OrderHistoryStorePage() {
       <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
 
       <div className="max-w-7xl mx-auto">
-
         {/* ヘッダー */}
         <div className="mb-6">
           <Link
@@ -321,7 +320,7 @@ export default function OrderHistoryStorePage() {
             className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group mb-4"
           >
             <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
-            <span className="font-medium">管理者画面に戻る</span>
+            <span className="font-medium">管理者画面一覧に戻る</span>
           </Link>
 
           <div className="flex items-center justify-between">
