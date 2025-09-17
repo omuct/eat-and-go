@@ -285,13 +285,11 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
       if (profileError && profileError.code === "PGRST116") {
         // プロファイルが存在しない場合は作成
-        const { error: createError } = await supabase
-          .from("profiles")
-          .insert({
-            id: session.user.id,
-            role: "user",
-            name: session.user.email?.split("@")[0] || "ゲスト",
-          });
+        const { error: createError } = await supabase.from("profiles").insert({
+          id: session.user.id,
+          role: "user",
+          name: session.user.email?.split("@")[0] || "ゲスト",
+        });
 
         if (createError) {
           console.error("プロファイル作成エラー:", createError);
@@ -496,30 +494,6 @@ export default function PaymentPage({ params }: PaymentPageProps) {
                   <Banknote size={24} className="mr-3 text-gray-600" />
                   <div>
                     <p className="font-medium">現金払い</p>
-                    <p className="text-sm text-gray-500">
-                      商品受け取り時にお支払いください
-                    </p>
-                  </div>
-                </label>
-
-                <label
-                  className={`border rounded-lg p-4 flex items-center cursor-pointer ${
-                    paymentMethod === "credit"
-                      ? "border-blue-500 bg-blue-50"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="credit"
-                    checked={paymentMethod === "credit"}
-                    onChange={() => setPaymentMethod("credit")}
-                    className="mr-3"
-                  />
-                  <CreditCard size={24} className="mr-3 text-gray-600" />
-                  <div>
-                    <p className="font-medium">クレジットカード</p>
                     <p className="text-sm text-gray-500">
                       商品受け取り時にお支払いください
                     </p>

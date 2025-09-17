@@ -2,7 +2,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { ArrowLeft } from "lucide-react";
 
 export default function TrashNewPage() {
   const searchParams = useSearchParams();
@@ -14,6 +16,9 @@ export default function TrashNewPage() {
   const [placeName, setPlaceName] = useState("");
   const [googlemapurl, setGooglemapurl] = useState("");
   const [loading, setLoading] = useState(false);
+  // 分別種別と上限
+  const [type, setType] = useState("pet"); // "pet" or "paper"
+  const [capacity, setCapacity] = useState<number>(30); // デフォルト30本
 
   useEffect(() => {
     // placeIdがセットされたらマップ名と地図URL取得
@@ -48,9 +53,16 @@ export default function TrashNewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase
-      .from("trash_bins")
-      .insert({ name, place_id: placeId, lat, lng });
+    // 追加時はamount=0で初期化
+    const { error } = await supabase.from("trash_bins").insert({
+      name,
+      place_id: placeId,
+      lat,
+      lng,
+      type,
+      capacity,
+      amount: 0,
+    });
     setLoading(false);
     if (error) {
       alert("追加に失敗しました: " + error.message);
@@ -59,11 +71,22 @@ export default function TrashNewPage() {
       setName("");
       setLat(null);
       setLng(null);
+      setType("pet");
+      setCapacity(30);
     }
   };
 
   return (
     <div className="p-6">
+      <div className="mb-4">
+        <Link
+          href="/admin/trash"
+          className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+          <span className="font-medium">ごみ箱一覧に戻る</span>
+        </Link>
+      </div>
       <h1 className="text-2xl font-bold mb-4">ゴミ箱新規追加</h1>
       {placeName && (
         <div className="mb-2 text-lg font-semibold text-blue-700">
@@ -77,6 +100,32 @@ export default function TrashNewPage() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className="border px-2 py-1 rounded w-full"
+            required
+          />
+        </div>
+        <div className="mb-2">
+          <label>分別種別</label>
+          <select
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value);
+              setCapacity(e.target.value === "pet" ? 30 : 50); // 紙は50枚デフォルト
+            }}
+            className="border px-2 py-1 rounded w-full"
+            required
+          >
+            <option value="pet">ペットボトル</option>
+            <option value="paper">紙</option>
+          </select>
+        </div>
+        <div className="mb-2">
+          <label>上限（{type === "pet" ? "本" : "枚"}）</label>
+          <input
+            type="number"
+            value={capacity}
+            min={1}
+            onChange={(e) => setCapacity(Number(e.target.value))}
             className="border px-2 py-1 rounded w-full"
             required
           />

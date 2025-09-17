@@ -2,6 +2,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function TrashDetailPage() {
   const { id } = useParams();
@@ -11,6 +13,8 @@ export default function TrashDetailPage() {
   const [editAmount, setEditAmount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [googlemapurl, setGooglemapurl] = useState<string>("");
+  const [type, setType] = useState<string>("pet");
+  const [capacity, setCapacity] = useState<number>(30);
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,13 +22,15 @@ export default function TrashDetailPage() {
     const fetchBin = async () => {
       const { data } = await supabase
         .from("trash_bins")
-        .select("id, name, amount, lat, lng, place_id")
+        .select("id, name, amount, lat, lng, place_id, type, capacity")
         .eq("id", id)
         .single();
       setBin(data);
       setEditLat(data?.lat ?? null);
       setEditLng(data?.lng ?? null);
       setEditAmount(data?.amount ?? null);
+      setType(data?.type ?? "pet");
+      setCapacity(data?.capacity ?? 30);
       // 地図URL取得
       if (data?.place_id) {
         const { data: placeData } = await supabase
@@ -55,7 +61,7 @@ export default function TrashDetailPage() {
     const fetchBin = async () => {
       const { data } = await supabase
         .from("trash_bins")
-        .select("id, name, amount, lat, lng, place_id")
+        .select("id, name, amount, lat, lng, place_id, type, capacity")
         .eq("id", id)
         .single();
       setBin(data);
@@ -79,6 +85,8 @@ export default function TrashDetailPage() {
           editAmount !== null && editAmount !== undefined
             ? parseInt(editAmount as any, 10)
             : 0,
+        type,
+        capacity,
       })
       .eq("id", id);
     setLoading(false);
@@ -89,11 +97,13 @@ export default function TrashDetailPage() {
       // 再取得
       const { data } = await supabase
         .from("trash_bins")
-        .select("id, name, amount, lat, lng, place_id")
+        .select("id, name, amount, lat, lng, place_id, type, capacity")
         .eq("id", id)
         .single();
       setBin(data);
       setEditAmount(data?.amount ?? null);
+      setType(data?.type ?? "pet");
+      setCapacity(data?.capacity ?? 30);
     }
   };
 
@@ -113,6 +123,15 @@ export default function TrashDetailPage() {
 
   return (
     <div className="p-6">
+      <div className="mb-4">
+        <Link
+          href="/admin/trash"
+          className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+          <span className="font-medium">ごみ箱一覧に戻る</span>
+        </Link>
+      </div>
       <h1 className="text-2xl font-bold mb-4">ゴミ箱詳細</h1>
       {bin ? (
         <div className="bg-white rounded shadow p-4">
@@ -182,21 +201,43 @@ export default function TrashDetailPage() {
           </div>
           <form onSubmit={handleUpdate} className="mt-4 space-y-2">
             <div>
-              <label>ごみ量(%)</label>
+              <label>分別種別</label>
+              <select
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value);
+                  setCapacity(e.target.value === "pet" ? 30 : 50);
+                }}
+                className="border px-2 py-1 rounded w-full"
+                required
+              >
+                <option value="pet">ペットボトル</option>
+                <option value="paper">紙</option>
+              </select>
+            </div>
+            <div>
+              <label>上限（{type === "pet" ? "本" : "枚"}）</label>
+              <input
+                type="number"
+                value={capacity}
+                min={1}
+                onChange={(e) => setCapacity(Number(e.target.value))}
+                className="border px-2 py-1 rounded w-full"
+                required
+              />
+            </div>
+            <div>
+              <label>現在入っている数（{type === "pet" ? "本" : "枚"}）</label>
               <input
                 type="number"
                 min={0}
-                max={100}
                 value={
                   editAmount !== null && editAmount !== undefined
                     ? editAmount
                     : ""
                 }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setEditAmount(val === "" ? null : Number(val));
-                }}
-                className="border px-2 py-1 rounded w-24 ml-2"
+                onChange={(e) => setEditAmount(Number(e.target.value))}
+                className="border px-2 py-1 rounded w-full"
                 required
               />
             </div>

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { ArrowLeft } from "lucide-react";
 
 interface Place {
   id: string;
@@ -37,6 +39,13 @@ export default function TrashPage() {
   }, []);
   return (
     <div className="p-6">
+      <Link
+        href="/admin"
+        className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+      >
+        <ArrowLeft className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" />
+        <span className="font-medium">管理者画面一覧に戻る</span>
+      </Link>
       <h1 className="text-2xl font-bold mb-4">マップごとのゴミ箱一覧</h1>
       {places.map((place) => (
         <div key={place.id} className="mb-6">

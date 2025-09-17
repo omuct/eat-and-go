@@ -866,22 +866,7 @@ export default function StoreOrderHistoryPage({
               </select>
             </div>
 
-            {/* 支払方法フィルター */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                支払方法
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">すべて</option>
-                <option value="cash">現金</option>
-                <option value="credit">クレジット</option>
-                <option value="paypay">PayPay</option>
-              </select>
-            </div>
+            {/* 支払方法フィルター削除済み */}
 
             {/* 日付フィルター */}
             <div>
@@ -1085,16 +1070,12 @@ export default function StoreOrderHistoryPage({
                             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               order.payment_method === "cash"
                                 ? "bg-green-100 text-green-800"
-                                : order.payment_method === "credit"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-red-100 text-red-800"
+                                : "bg-red-100 text-red-800"
                             }`}
                           >
                             {order.payment_method === "cash"
                               ? "現金"
-                              : order.payment_method === "credit"
-                                ? "クレジット"
-                                : "PayPay"}
+                              : "PayPay"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1228,16 +1209,12 @@ export default function StoreOrderHistoryPage({
                                         className={`ml-2 px-2 py-1 rounded text-xs ${
                                           order.payment_method === "cash"
                                             ? "bg-green-100 text-green-800"
-                                            : order.payment_method === "credit"
-                                              ? "bg-blue-100 text-blue-800"
-                                              : "bg-red-100 text-red-800"
+                                            : "bg-red-100 text-red-800"
                                         }`}
                                       >
                                         {order.payment_method === "cash"
                                           ? "現金"
-                                          : order.payment_method === "credit"
-                                            ? "クレジット"
-                                            : "PayPay"}
+                                          : "PayPay"}
                                       </span>
                                     </p>
                                     <p>
