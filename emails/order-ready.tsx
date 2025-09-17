@@ -23,10 +23,10 @@ export const OrderReadyEmail = ({
 }: OrderReadyEmailProps) => (
   <Html>
     <Head />
-    <Preview>ご注文の準備ができました！</Preview>
+    <Preview>ご注文の準備ができました</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={heading}>ご注文の準備ができました！</Heading>
+        <Heading style={heading}>ご注文の準備ができました</Heading>
         <Text style={paragraph}>{customerName}様</Text>
         <Text style={paragraph}>
           ご注文いただいた商品の準備が整いました。カウンターまでお越しください。
