@@ -142,10 +142,7 @@ export default function StoreOrderHistoryPage({
       const qrCodeDataUrl = await QRCode.toDataURL(data, {
         width: 200,
         margin: 2,
-        color: {
-          dark: "#000000",
-          light: "#FFFFFF",
-        },
+        color: { dark: "#000000", light: "#FFFFFF" },
       });
       return qrCodeDataUrl;
     } catch (error) {
@@ -208,10 +205,7 @@ export default function StoreOrderHistoryPage({
       // 印刷回数を更新
       const currentPrintCount = printCounts[orderId] || 0;
       const newPrintCount = currentPrintCount + 1;
-      setPrintCounts((prev) => ({
-        ...prev,
-        [orderId]: newPrintCount,
-      }));
+      setPrintCounts((prev) => ({ ...prev, [orderId]: newPrintCount }));
 
       // QRコードデータを生成
       const qrData = generateQRCodeData(order);
@@ -237,7 +231,7 @@ export default function StoreOrderHistoryPage({
       return;
     }
 
-    // 注文番号に印刷回数の表示を追加
+    // 注文番号
     const baseOrderNumber =
       order.order_number || `#${order.id.substring(0, 8)}`;
 
@@ -261,48 +255,42 @@ export default function StoreOrderHistoryPage({
       }
     });
 
-    // 各ラベルごとに印刷HTMLを生成
+    // 各ラベルごとに印刷HTMLを生成（62mm幅、QRコード最大化）
     const printPages = printLabels
       .map(
         (label, index) => `
     <div class="print-page" ${index > 0 ? 'style="page-break-before: always;"' : ""}>
       <div class="print-container">
+        
         <!-- 店舗名 -->
         <div class="store-name">
           ${store?.name || "学食"}
         </div>
         
-        <!-- QRコード -->
-        <div class="qr-section">
-          <div class="qr-code">
-            <img src="${qrCodeDataUrl}" alt="QR" />
-          </div>
-        </div>
-        
         <!-- 注文番号 -->
         <div class="order-number">
           ${
-            printCount > 1
-              ? `${label.orderNumber} <span class="reprint-mark">(再)</span>`
-              : label.orderNumber
+            printCount > 1 ? `${label.orderNumber} (再印刷)` : label.orderNumber
           }
         </div>
         
-        <!-- 商品情報 -->
-        <div class="item-info">
-          <div class="item-name">
-            ${label.name.length > 14 ? label.name.substring(0, 14) + "..." : label.name}
-          </div>
-          ${
-            label.totalQuantity > 1
-              ? `
-          <div class="item-details">
-            ${label.currentLabel}/${label.totalQuantity}個
-          </div>
-          `
-              : ""
-          }
+        <!-- 商品名 -->
+        <div class="item-name">
+          ${label.name}
         </div>
+        
+        <!-- 数量（複数個の場合のみ表示） -->
+        ${
+          label.totalQuantity > 1
+            ? `<div class="quantity">${label.currentLabel}/${label.totalQuantity}個目</div>`
+            : ""
+        }
+        
+        <!-- QRコード（大きく表示） -->
+        <div class="qr-section">
+          <img src="${qrCodeDataUrl}" alt="QR Code" class="qr-code" />
+        </div>
+        
       </div>
     </div>
   `
@@ -320,86 +308,112 @@ export default function StoreOrderHistoryPage({
             margin: 0; 
             padding: 0; 
             background: white;
-            font-size: 6px;
+            font-size: 10px;
+            color: #000;
           }
+          
+          /* 62mm幅の印刷設定（1ページに収める） */
           .print-page {
-            width: 29mm;
-            height: 90mm;
+            width: 62mm;
+            height: 100mm;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
             page-break-after: always;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
           }
           .print-page:last-child {
             page-break-after: auto;
           }
+          
+          /* コンテナ */
           .print-container {
             width: 100%;
             height: 100%;
+            padding: 3mm;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            padding: 1mm;
-            box-sizing: border-box;
+            text-align: center;
           }
+
+          /* 上部情報エリア */
           .store-name {
-            font-size: 7px;
+            font-size: 12px;
             font-weight: bold;
-            text-align: center;
-            margin-bottom: 1mm;
+            margin-bottom: 2mm;
+            border-bottom: 1px solid #000;
+            padding-bottom: 1mm;
             width: 100%;
           }
-          .qr-section {
-            text-align: center;
-            margin: 0.5mm 0;
-          }
-          .qr-code img {
-            width: 15mm;
-            height: 15mm;
-            border: none;
-          }
+          
           .order-number {
-            font-size: 5px;
+            font-size: 11px;
             font-weight: bold;
-            margin: 0.5mm 0;
-            text-align: center;
-            word-wrap: break-word;
-            line-height: 1.1;
+            margin-bottom: 2mm;
           }
-          .reprint-mark {
-            color: #ff0000;
-            font-weight: bold;
-          }
-          .item-info {
-            width: 100%;
-            margin-top: 1mm;
-            text-align: center;
-          }
+          
           .item-name {
-            font-size: 6px;
+            font-size: 10px;
             font-weight: bold;
-            margin-bottom: 0.5mm;
             word-wrap: break-word;
-            line-height: 1.1;
+            line-height: 1.3;
+            margin-bottom: 2mm;
+            width: 100%;
+            max-height: 15mm;
+            overflow: hidden;
           }
-          .item-details {
-            font-size: 4px;
+          
+          .quantity {
+            font-size: 9px;
             color: #666;
-            line-height: 1.1;
+            margin-bottom: 2mm;
+            padding: 1mm;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            display: inline-block;
           }
+
+          /* QRコード（可能な限り大きく） */
+          .qr-section {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 2mm 0;
+          }
+          
+          .qr-code {
+            width: 45mm;
+            height: 45mm;
+            max-width: 45mm;
+            max-height: 45mm;
+            border: 2px solid #000;
+          }
+
+          /* 印刷設定（62mm × 100mm固定） */
           @media print {
             body { 
               margin: 0; 
               padding: 0;
+              color: #000 !important;
             }
             .print-page {
-              width: 29mm;
-              height: 90mm;
+              width: 62mm;
+              height: 100mm;
             }
             @page {
-              size: 29mm 90mm;
+              size: 62mm 100mm;
               margin: 0;
+            }
+            
+            /* QRコード印刷設定 */
+            .qr-code {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
           }
         </style>
@@ -413,7 +427,7 @@ export default function StoreOrderHistoryPage({
     printWindow.document.close();
     printWindow.focus();
 
-    // 画像が読み込まれるまで少し待ってから印刷実行
+    // 印刷実行
     setTimeout(() => {
       printWindow.print();
 
@@ -1025,10 +1039,7 @@ export default function StoreOrderHistoryPage({
                             <div className="text-xs">
                               {new Date(order.created_at).toLocaleTimeString(
                                 "ja-JP",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
+                                { hour: "2-digit", minute: "2-digit" }
                               )}
                             </div>
                           </div>
