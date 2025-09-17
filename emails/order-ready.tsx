@@ -26,6 +26,9 @@ export const OrderReadyEmail = ({
     <Preview>ご注文の準備ができました</Preview>
     <Body style={main}>
       <Container style={container}>
+        <Section style={header}>
+          <Text style={headerTitle}>EAT & GO</Text>
+        </Section>
         <Heading style={heading}>ご注文の準備ができました</Heading>
         <Text style={paragraph}>{customerName}様</Text>
         <Text style={paragraph}>
@@ -64,6 +67,19 @@ const container = {
   margin: "0 auto",
   padding: "20px 0 48px",
   marginBottom: "64px",
+};
+
+const header = {
+  backgroundColor: "#2563eb",
+  padding: "20px",
+  textAlign: "center" as const,
+};
+
+const headerTitle = {
+  color: "#ffffff",
+  fontSize: "24px",
+  fontWeight: "700",
+  margin: "0",
 };
 
 const heading = {
