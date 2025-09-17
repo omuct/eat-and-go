@@ -212,37 +212,6 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 mb-4">または</p>
-            <div className="space-y-2">
-              <button
-                onClick={handleGoogleLogin}
-                className="w-full py-2 px-4 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
-              >
-                <img
-                  src="https://www.google.com/favicon.ico"
-                  alt="Google"
-                  className="w-5 h-5 mr-2"
-                />
-                Googleでログイン
-              </button>
-              <button
-                onClick={handleXLogin}
-                className="w-full py-2 px-4 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-5 h-5 mr-2"
-                  fill="currentColor"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-                Xでログイン
-              </button>
-            </div>
-          </div>
-
           <div className="mt-6 text-center text-sm">
             <Link href="/login/new" className="text-gray-600 hover:underline">
               アカウント作成

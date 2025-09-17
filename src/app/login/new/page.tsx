@@ -25,6 +25,9 @@ export default function Signup() {
       return;
     }
 
+    // サインアップ後にセッションを明示的にクリア
+    await supabase.auth.signOut();
+
     alert(
       "アカウント作成が完了しました。ご登録いただいたメールアドレス宛に、認証メールをお送りいたしましたのご確認後ログインをお願いします。ログインページに移動します"
     );
