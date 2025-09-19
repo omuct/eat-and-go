@@ -11,6 +11,8 @@ import {
   ClipboardList,
   Store,
   Mail,
+  MapPin,
+  Trash2,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -56,21 +58,15 @@ export default function AdminDashboard() {
     {
       title: "場所管理",
       description: "会場・地図の新規登録・編集・公開設定",
-      icon: <Store size={24} />,
+      icon: <MapPin size={24} />,
       path: "/admin/map",
     },
     {
       title: "ゴミ箱管理",
       description: "地図上のゴミ箱の追加・一覧・ごみ量の確認",
-      icon: <Store size={24} />,
+      icon: <Trash2 size={24} />,
       path: "/admin/trash",
     },
-    // {
-    //   title: "メール管理",
-    //   description: "認証済みメールアドレスの管理・一括同期",
-    //   icon: <Mail size={24} />,
-    //   path: "/admin/email",
-    // },
   ];
 
   return (

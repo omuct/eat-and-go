@@ -16,10 +16,12 @@ export default function TrashDetailPage() {
   const [type, setType] = useState<string>("pet");
   const [capacity, setCapacity] = useState<number>(30);
   const mapRef = useRef<HTMLDivElement>(null);
+  // 既存ゴミ箱一覧（同じplace_id）
+  const [bins, setBins] = useState<any[]>([]);
 
   useEffect(() => {
-    // ゴミ箱情報取得
-    const fetchBin = async () => {
+    // ゴミ箱情報取得＆同じマップの他のごみ箱も取得
+    const fetchBinAndBins = async () => {
       const { data } = await supabase
         .from("trash_bins")
         .select("id, name, amount, lat, lng, place_id, type, capacity")
@@ -31,7 +33,7 @@ export default function TrashDetailPage() {
       setEditAmount(data?.amount ?? null);
       setType(data?.type ?? "pet");
       setCapacity(data?.capacity ?? 30);
-      // 地図URL取得
+      // 地図URL取得＆同じplace_idのごみ箱一覧取得
       if (data?.place_id) {
         const { data: placeData } = await supabase
           .from("places")
@@ -39,9 +41,15 @@ export default function TrashDetailPage() {
           .eq("id", data.place_id)
           .single();
         setGooglemapurl(placeData?.googlemapurl || "");
+        // 他のごみ箱一覧
+        const { data: binsData } = await supabase
+          .from("trash_bins")
+          .select("id, name, lat, lng, amount, capacity, type")
+          .eq("place_id", data.place_id);
+        setBins(binsData || []);
       }
     };
-    if (id) fetchBin();
+    if (id) fetchBinAndBins();
   }, [id]);
 
   // 地図クリックで座標変更
@@ -172,24 +180,71 @@ export default function TrashDetailPage() {
                   className="absolute top-0 left-0 w-full h-full cursor-crosshair"
                   style={{ zIndex: 2 }}
                 >
+                  {/* 他のごみ箱を地図上に表示（編集中は強調） */}
+                  {bins.map((b) => {
+                    const percent =
+                      b.capacity && b.capacity > 0
+                        ? Math.round((b.amount / b.capacity) * 100)
+                        : 0;
+                    const isEditing = b.id === bin?.id;
+                    // 編集中のごみ箱は現在の編集座標で描画
+                    const lng = isEditing && editLng !== null ? editLng : b.lng;
+                    const lat = isEditing && editLat !== null ? editLat : b.lat;
+                    return (
+                      <div
+                        key={b.id}
+                        style={{
+                          position: "absolute",
+                          left: `${((lng - 135.0) / 0.1) * 100}%`,
+                          top: `${((lat - 35.0) / 0.1) * 100}%`,
+                          width: 36,
+                          textAlign: "center",
+                          transform: "translate(-50%, -100%)",
+                          pointerEvents: "none",
+                          zIndex: isEditing ? 10 : 1,
+                        }}
+                      >
+                        <img
+                          src={
+                            percent >= 90
+                              ? "/gomibako_full.png"
+                              : "/gomibako_empty.png"
+                          }
+                          alt="trash bin"
+                          title={b.name}
+                          style={{
+                            width: isEditing ? 40 : 32,
+                            height: isEditing ? 40 : 32,
+                            display: "block",
+                            margin: "0 auto",
+                            border: isEditing ? "3px solid #2563eb" : "none",
+                            borderRadius: isEditing ? 8 : 0,
+                            boxShadow: isEditing ? "0 0 8px #2563eb55" : "none",
+                            background: isEditing ? "#e0e7ff" : "none",
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: isEditing ? "#2563eb" : "#1e293b",
+                            background: isEditing
+                              ? "#dbeafe"
+                              : "rgba(255,255,255,0.8)",
+                            borderRadius: 4,
+                            padding: "0 4px",
+                            marginTop: 2,
+                            display: "inline-block",
+                            fontWeight: isEditing ? "bold" : "normal",
+                          }}
+                        >
+                          {percent}%
+                        </span>
+                      </div>
+                    );
+                  })}
                   <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
                     地図をクリックして座標を選択
                   </span>
-                  {editLat && editLng && (
-                    <img
-                      src="/gomibako_empty.png"
-                      alt="trash bin"
-                      style={{
-                        position: "absolute",
-                        left: `${((editLng - 135.0) / 0.1) * 100}%`,
-                        top: `${((editLat - 35.0) / 0.1) * 100}%`,
-                        width: 32,
-                        height: 32,
-                        transform: "translate(-50%, -100%)",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  )}
                 </div>
               </div>
             </div>

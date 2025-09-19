@@ -119,15 +119,26 @@ export default function AdminMapEditPage() {
               onClick={async () => {
                 if (confirm("本当に削除しますか？")) {
                   setLoading(true);
-                  const { error } = await supabase
+                  // まずこのマップに属するごみ箱を削除
+                  const { error: binError } = await supabase
+                    .from("trash_bins")
+                    .delete()
+                    .eq("place_id", id);
+                  if (binError) {
+                    setLoading(false);
+                    alert("ごみ箱の削除に失敗しました: " + binError.message);
+                    return;
+                  }
+                  // その後マップ自体を削除
+                  const { error: placeError } = await supabase
                     .from("places")
                     .delete()
                     .eq("id", id);
                   setLoading(false);
-                  if (!error) {
+                  if (!placeError) {
                     router.push("/admin/map");
                   } else {
-                    alert("削除に失敗しました: " + error.message);
+                    alert("削除に失敗しました: " + placeError.message);
                   }
                 }
               }}
