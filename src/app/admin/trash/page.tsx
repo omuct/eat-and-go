@@ -12,6 +12,7 @@ interface TrashBin {
   id: string;
   name: string;
   amount: number;
+  type?: string;
 }
 
 export default function TrashPage() {
@@ -27,7 +28,7 @@ export default function TrashPage() {
       setPlaces(placesData || []);
       const { data: binsData } = await supabase
         .from("trash_bins")
-        .select("id, name, amount, place_id");
+        .select("id, name, amount, place_id, type");
       const grouped: Record<string, TrashBin[]> = {};
       (binsData || []).forEach((bin) => {
         if (!grouped[bin.place_id]) grouped[bin.place_id] = [];
@@ -62,22 +63,32 @@ export default function TrashPage() {
           </div>
           <ul className="bg-white rounded shadow p-4">
             {(binsByPlace[place.id] || []).length === 0 && <li>ゴミ箱なし</li>}
-            {(binsByPlace[place.id] || []).map((bin) => (
+            {(binsByPlace[place.id] || []).map((bin, idx, arr) => (
               <li
                 key={bin.id}
-                className="mb-2 flex justify-between items-center"
+                className={`mb-2 flex justify-between items-center border-b border-gray-200 ${idx === arr.length - 1 ? "border-b-0" : ""} pb-2`}
               >
                 <span>{bin.name}</span>
-                <span className="flex items-center">
+                <span className="flex flex-col items-start min-w-[140px]">
                   <button
-                    className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs mr-2"
+                    className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs mb-1 w-full text-left"
                     onClick={() =>
                       (window.location.href = `/admin/trash/${bin.id}`)
                     }
                   >
                     編集
                   </button>
-                  ごみ量: {bin.amount}
+                  <span className="text-sm">
+                    ごみ量: {bin.amount}
+                    {bin.type === "pet" && (
+                      <span className="ml-1 text-xs text-blue-600">
+                        (ペットボトル)
+                      </span>
+                    )}
+                    {bin.type === "paper" && (
+                      <span className="ml-1 text-xs text-green-600">(紙)</span>
+                    )}
+                  </span>
                 </span>
               </li>
             ))}

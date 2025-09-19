@@ -11,6 +11,8 @@ export default function TrashNewPage() {
   const placeIdFromQuery = searchParams.get("placeId") || "";
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
+  // 既存ゴミ箱一覧
+  const [bins, setBins] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [placeId, setPlaceId] = useState(placeIdFromQuery);
   const [placeName, setPlaceName] = useState("");
@@ -21,18 +23,24 @@ export default function TrashNewPage() {
   const [capacity, setCapacity] = useState<number>(30); // デフォルト30本
 
   useEffect(() => {
-    // placeIdがセットされたらマップ名と地図URL取得
-    const fetchPlace = async () => {
+    // placeIdがセットされたらマップ名と地図URL取得＆既存ゴミ箱取得
+    const fetchPlaceAndBins = async () => {
       if (!placeId) return;
-      const { data } = await supabase
+      const { data: placeData } = await supabase
         .from("places")
         .select("name, googlemapurl")
         .eq("id", placeId)
         .single();
-      setPlaceName(data?.name || "");
-      setGooglemapurl(data?.googlemapurl || "");
+      setPlaceName(placeData?.name || "");
+      setGooglemapurl(placeData?.googlemapurl || "");
+      // 既存ゴミ箱一覧取得
+      const { data: binsData } = await supabase
+        .from("trash_bins")
+        .select("id, name, lat, lng, amount, capacity, type")
+        .eq("place_id", placeId);
+      setBins(binsData || []);
     };
-    fetchPlace();
+    fetchPlaceAndBins();
   }, [placeId]);
 
   // 仮の地図エリア（実際はGoogleMap等を使う）
@@ -163,6 +171,56 @@ export default function TrashNewPage() {
                 className="absolute top-0 left-0 w-full h-full cursor-crosshair"
                 style={{ zIndex: 2 }}
               >
+                {/* 既存ゴミ箱を地図上に表示 */}
+                {bins.map((bin) => {
+                  const percent =
+                    bin.capacity && bin.capacity > 0
+                      ? Math.round((bin.amount / bin.capacity) * 100)
+                      : 0;
+                  return (
+                    <div
+                      key={bin.id}
+                      style={{
+                        position: "absolute",
+                        left: `${((bin.lng - 135.0) / 0.1) * 100}%`,
+                        top: `${((bin.lat - 35.0) / 0.1) * 100}%`,
+                        width: 32,
+                        textAlign: "center",
+                        transform: "translate(-50%, -100%)",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <img
+                        src={
+                          percent >= 90
+                            ? "/gomibako_full.png"
+                            : "/gomibako_empty.png"
+                        }
+                        alt="trash bin"
+                        title={bin.name}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          display: "block",
+                          margin: "0 auto",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "#1e293b",
+                          background: "rgba(255,255,255,0.8)",
+                          borderRadius: 4,
+                          padding: "0 4px",
+                          marginTop: 2,
+                          display: "inline-block",
+                        }}
+                      >
+                        {percent}%
+                      </span>
+                    </div>
+                  );
+                })}
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
                   地図をクリックして座標を選択
                 </span>
