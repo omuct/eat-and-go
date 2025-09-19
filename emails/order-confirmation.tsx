@@ -53,7 +53,7 @@ export const OrderConfirmationEmail = ({
       <Preview>{previewText}</Preview>
       <Container style={container}>
         <Section style={header}>
-          <Text style={headerTitle}>モバイルオーダーアプリ</Text>
+          <Text style={headerTitle}>EAT & GO</Text>
         </Section>
 
         <Section style={content}>
@@ -68,9 +68,6 @@ export const OrderConfirmationEmail = ({
           <Section style={orderInfoSection}>
             <Text style={orderInfoLabel}>注文番号: {orderNumber}</Text>
             <Text style={orderInfoLabel}>注文日時: {orderDate}</Text>
-            {pickupTime && (
-              <Text style={orderInfoLabel}>受取予定時間: {pickupTime}</Text>
-            )}
           </Section>
 
           <Section style={orderItemsSection}>
@@ -101,12 +98,6 @@ export const OrderConfirmationEmail = ({
               ✓ 注文番号を控えておいてください
               <br />✓ 受取時に注文番号をお伝えください
             </Text>
-          </Section>
-
-          <Section style={buttonSection}>
-            <Button style={button} href="#">
-              注文履歴を確認
-            </Button>
           </Section>
         </Section>
       </Container>
