@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
+import * as Brevo from "@getbrevo/brevo";
+import { render } from "@react-email/render";
+//import { Resend } from "resend";
 import { OrderReadyEmail } from "../../../../../emails/order-ready";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+//const resend = new Resend(process.env.RESEND_API_KEY);
+const apiInstance = new Brevo.TransactionalEmailsApi();
 
 export async function POST(request: NextRequest) {
   try {
+    apiInstance.setApiKey(
+      Brevo.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY!
+    );
+
     const { orderId } = await request.json();
 
     if (!orderId) {
       return NextResponse.json({ error: "注文IDが必要です" }, { status: 400 });
     }
 
-    // --- ここからが前回の成功パターンです ---
     // 1. ヘッダーからアクセストークンを取得
     const authToken = request.headers
       .get("authorization")
@@ -24,6 +31,18 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    /*
+    const authToken = request.headers
+      .get("authorization")
+      ?.replace("Bearer ", "");
+    if (!authToken) {
+      return NextResponse.json(
+        { error: "認証トークンが必要です" },
+        { status: 401 }
+      );
+    }
+    */
 
     // 2. 受け取ったトークンで認証された、一時的なSupabaseクライアントを作成
     const supabase = createClient(
@@ -55,7 +74,6 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
-    // --- ここまで ---
 
     // 4. 注文データを取得し、注文者情報を結合する
     const { data: orderData, error: orderError } = await supabase
@@ -93,6 +111,29 @@ export async function POST(request: NextRequest) {
     const orderNumber = orderData.order_number;
 
     if (customerEmail && orderNumber) {
+      const emailHtml = await render(
+        OrderReadyEmail({
+          customerName: customerName || "お客様",
+          orderNumber: orderNumber,
+        })
+      );
+
+      const sendSmtpEmail = new Brevo.SendSmtpEmail();
+      sendSmtpEmail.to = [
+        { email: customerEmail, name: customerName || "お客様" },
+      ];
+      sendSmtpEmail.sender = {
+        email: process.env.EMAIL_FROM!,
+        name: "EAT & GO",
+      };
+      sendSmtpEmail.subject = `【EAT & GO】ご注文の準備ができました - 注文番号: ${orderNumber}`;
+      sendSmtpEmail.htmlContent = emailHtml;
+
+      await apiInstance.sendTransacEmail(sendSmtpEmail);
+    }
+
+    /*
+    if (customerEmail && orderNumber) {
       await resend.emails.send({
         from: process.env.EMAIL_FROM || "onboarding@resend.dev",
         to: customerEmail,
@@ -103,6 +144,7 @@ export async function POST(request: NextRequest) {
         }),
       });
     }
+    */
 
     return NextResponse.json({
       success: true,
