@@ -42,7 +42,11 @@ export async function sendOrderConfirmationEmail({
       };
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BRANCH_URL || // プレビューURLがあればそれを使う
+      process.env.NEXT_PUBLIC_BASE_URL || // なければ本番URLを使う
+      "http://localhost:3000"; // どちらもなければローカルURL
+
     const url = new URL("/api/orders/send-confirmation", baseUrl);
 
     const response = await fetch(url.toString(), {
