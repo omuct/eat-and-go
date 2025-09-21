@@ -3,12 +3,20 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { OrderConfirmationEmail } from "../../../../../emails/order-confirmation";
 import { supabase } from "@/lib/supabaseClient";
+import * as Brevo from "@getbrevo/brevo";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// BrevoのAPIインスタンスを作成
+const apiInstance = new Brevo.TransactionalEmailsApi();
+
+//const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
     console.log("Send confirmation API called");
+    apiInstance.setApiKey(
+      Brevo.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY!
+    );
 
     const body = await request.json();
     console.log("Request body:", body);
@@ -89,13 +97,26 @@ export async function POST(request: NextRequest) {
     console.log(`Sending to: ${emailTo} (Production mode)`);
     */
 
-    // Resendでメール送信
+    // Brevoでメールを送信
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to, name: customerName || "お客様" }];
+    sendSmtpEmail.sender = {
+      email: process.env.EMAIL_FROM!,
+      name: "EAT & GO",
+    };
+    sendSmtpEmail.subject = `【EAT & GO】ご注文確認 - 注文番号: ${orderNumber}`;
+    sendSmtpEmail.htmlContent = emailHtml;
+
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    /* Resendでメール送信
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || "onboarding@resend.dev", // 本番時変更
       to: [emailTo],
       subject: `【注文管理アプリ】ご注文確認 - 注文番号: ${orderNumber}`,
       html: emailHtml,
     });
+    */
 
     // 【本番環境用メール設定 - コメントアウト】
     /*
@@ -111,23 +132,16 @@ export async function POST(request: NextRequest) {
     
     */
 
-    if (error) {
-      console.error("Resend error:", error);
-      return NextResponse.json(
-        { error: "Failed to send email", details: error },
-        { status: 500 }
-      );
-    }
-
-    console.log("Email sent successfully:", data);
     return NextResponse.json(
-      { message: "Email sent successfully", emailId: data?.id },
+      { message: "Email sent successfully", data },
       { status: 200 }
     );
   } catch (error) {
     console.error("Email API error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "不明なエラー";
     return NextResponse.json(
-      { error: "Internal server error", details: error },
+      { error: "Internal server error", details: errorMessage },
       { status: 500 }
     );
   }

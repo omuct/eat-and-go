@@ -43,7 +43,6 @@ export const OrderConfirmationEmail = ({
   ],
   totalAmount = 1920,
   orderDate = "2025年7月11日",
-  pickupTime = "12:30",
 }: OrderConfirmationEmailProps) => {
   const previewText = `ご注文ありがとうございます。注文番号: ${orderNumber}`;
 

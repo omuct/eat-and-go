@@ -105,8 +105,11 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       const finalAmount = totalAmount - discountAmount;
 
       const paymentPayload = {
-        amount: finalAmount,
-        orderDescription: `学食アプリ注文 - 合計${cartItems.length}点`,
+        amount: {
+          amount: finalAmount,
+          currency: "JPY",
+        },
+        orderDescription: `EAT & GO注文 - 合計${cartItems.length}点`,
         redirectUrl: `${window.location.origin}/orders/payment-status`, // リダイレクト先
       };
 
