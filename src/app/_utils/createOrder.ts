@@ -3,6 +3,11 @@ import { supabase } from "@/lib/supabaseClient";
 import { generateOrderNumber } from "./orderNumberGenerator";
 import { sendOrderConfirmationEmail } from "./sendOrderEmail";
 import { CartItem } from "../_types/cart";
+import * as Brevo from "@getbrevo/brevo";
+import { render } from "@react-email/render";
+import { OrderConfirmationEmail } from "../../../emails/order-confirmation";
+
+const apiInstance = new Brevo.TransactionalEmailsApi();
 
 interface OrderCreationPayload {
   userId: string;
@@ -23,6 +28,11 @@ export async function createOrder(payload: OrderCreationPayload) {
     paypayMerchantPaymentId,
     supabaseClient,
   } = payload;
+
+  apiInstance.setApiKey(
+    Brevo.TransactionalEmailsApiApiKeys.apiKey,
+    process.env.BREVO_API_KEY!
+  );
 
   if (!cartItems || cartItems.length === 0) {
     throw new Error("カートが空です。");
@@ -107,40 +117,41 @@ export async function createOrder(payload: OrderCreationPayload) {
 
   // 7. 確認メールを送信
   try {
-    const { data: profileData, error: profileError } = await supabaseClient
+    const { data: profileData } = await supabaseClient
       .from("profiles")
       .select("name, email")
       .eq("id", userId)
       .single();
 
-    if (profileError) {
-      console.error("メール送信のためのプロファイル取得エラー:", profileError);
-    }
-
     const userEmail = profileData?.email;
     const userName = profileData?.name || "お客様";
 
     if (userEmail) {
-      await sendOrderConfirmationEmail({
-        to: userEmail,
-        orderId: order.id,
-        orderNumber: order.order_number,
-        customerName: userName,
-        orderItems: cartItems.map((item) => ({
-          id: item.food_id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        totalAmount: finalAmount,
-      });
-    } else {
-      console.log(
-        "送信先のメールアドレスがprofilesテーブルに見つかりませんでした。"
+      const emailHtml = await render(
+        OrderConfirmationEmail({
+          orderNumber: order.order_number,
+          customerName: userName,
+          orderItems: cartItems,
+          totalAmount: finalAmount,
+          orderDate: new Date().toLocaleDateString("ja-JP"),
+        })
       );
+
+      const sendSmtpEmail = new Brevo.SendSmtpEmail();
+      sendSmtpEmail.to = [{ email: userEmail, name: userName }];
+      sendSmtpEmail.sender = {
+        email: process.env.EMAIL_FROM!,
+        name: "EAT & GO", // 送信元名はここで統一できます
+      };
+      sendSmtpEmail.subject = `【EAT & GO】ご注文ありがとうございます - 注文番号: ${order.order_number}`;
+      sendSmtpEmail.htmlContent = emailHtml;
+
+      await apiInstance.sendTransacEmail(sendSmtpEmail);
+      console.log("Order confirmation email sent via Brevo.");
     }
   } catch (emailError) {
-    console.error("Confirmation email sending failed:", emailError);
+    console.error("Order confirmation email sending failed:", emailError);
+    // メール送信が失敗しても、注文作成自体は成功しているので、エラーは投げない
   }
 
   return { orderId: order.id, orderNumber: order.order_number };
