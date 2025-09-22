@@ -1,3 +1,5 @@
+import { canSendEmail } from "./canSendEmail";
+
 interface OrderItem {
   id: string;
   name: string;
@@ -42,14 +44,24 @@ export async function sendOrderConfirmationEmail({
       };
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-    const url = new URL("/api/orders/send-confirmation", baseUrl);
+    const endpoint = "/api/orders/send-confirmation";
+    let fetchUrl;
 
-    const response = await fetch(url.toString(), {
+    // サーバーサイドで実行されているか（windowオブジェクトがないか）で判断
+    if (typeof window === "undefined") {
+      // サーバーサイドの場合：Vercelの環境変数から完全なURLを構築
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+      fetchUrl = new URL(endpoint, baseUrl).toString();
+    } else {
+      // ブラウザ（クライアントサイド）の場合：相対パスを使用
+      fetchUrl = endpoint;
+    }
+
+    const response = await fetch(fetchUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        orderId,
         to,
         orderNumber,
         customerName,
@@ -57,6 +69,7 @@ export async function sendOrderConfirmationEmail({
         totalAmount,
         orderDate,
         pickupTime,
+        orderId,
       }),
     });
 

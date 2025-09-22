@@ -178,49 +178,28 @@ export default function PaymentPage({ params }: PaymentPageProps) {
   // 従来の決済処理（現金・クレジット）
   const handleProcessPayment = async () => {
     setProcessingPayment(true);
-
     try {
-      // セッション確認
       const {
         data: { session },
-        error: sessionError,
       } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        console.error("認証エラー:", sessionError);
+      if (!session) {
         router.push("/login");
         return;
       }
 
-      console.log("認証済みユーザー:", session.user.id);
-
-      // プロファイルの確認・作成
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (profileError && profileError.code === "PGRST116") {
-        // プロファイルが存在しない場合は作成
-        const { error: createError } = await supabase.from("profiles").insert({
-          id: session.user.id,
-          role: "user",
-          name: session.user.email?.split("@")[0] || "ゲスト",
-        });
-
-        if (createError) {
-          console.error("プロファイル作成エラー:", createError);
-          throw new Error("ユーザープロファイルの作成に失敗しました");
+      const response = await axios.post(
+        "/api/orders/create-cash-order",
+        {
+          cartItems: cartItems,
+          paymentMethod: paymentMethod,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         }
-      }
+      );
 
-      const { orderId } = await createOrder({
-        userId: session.user.id,
-        cartItems: cartItems,
-        paymentMethod: paymentMethod,
-        supabaseClient: supabase,
-      });
 
       // 注文作成成功後に選択情報をクリア
       try {
@@ -230,6 +209,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
       // 完了画面へ
       router.push(`/orders/complete?orderId=${orderId}`);
+
     } catch (error) {
       console.error("決済処理エラー:", error);
       const errorMessage =
