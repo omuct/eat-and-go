@@ -27,6 +27,37 @@ export default function CartPage() {
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
+  const [groupedByStore, setGroupedByStore] = useState<
+    Record<string, CartItem[]>
+  >({});
+
+  const regroupFromItems = async (items: CartItem[]) => {
+    try {
+      const foodIds = Array.from(new Set(items.map((i) => i.food_id)));
+      let storeMap: Record<string, string> = {};
+      if (foodIds.length > 0) {
+        const { data: foods, error: foodsError } = await supabase
+          .from("foods")
+          .select("id, store_name")
+          .in("id", foodIds);
+        if (foodsError) throw foodsError;
+        (foods || []).forEach((f: any) => {
+          storeMap[String(f.id)] = String(f.store_name || "不明な店舗");
+        });
+      }
+
+      const grouped: Record<string, CartItem[]> = {};
+      items.forEach((item) => {
+        const storeName = storeMap[item.food_id] || "不明な店舗";
+        if (!grouped[storeName]) grouped[storeName] = [];
+        grouped[storeName].push(item);
+      });
+      setGroupedByStore(grouped);
+    } catch (err) {
+      console.error("再グループ化エラー:", err);
+      setGroupedByStore({ 不明な店舗: items });
+    }
+  };
 
   // カートアイテムを再取得する関数
   const refreshCartItems = async () => {
@@ -49,14 +80,17 @@ export default function CartPage() {
 
       console.log("カートアイテム取得結果:", data);
 
-      setCartItems(data || []);
-      setCartCount(data?.length || 0);
+      const cartData = data || [];
+      setCartItems(cartData);
+      setCartCount(cartData.length);
+
+      await regroupFromItems(cartData);
 
       // 合計金額と割引額の計算
       let total = 0;
       let discount = 0;
 
-      (data || []).forEach((item) => {
+      (cartData || []).forEach((item) => {
         total += item.total_price;
         if (item.is_takeout) {
           discount += 10 * item.quantity;
@@ -158,6 +192,8 @@ export default function CartPage() {
 
       setTotalAmount(total);
       setDiscountAmount(discount);
+      // 店舗ごと再グループ
+      await regroupFromItems(updatedItems);
     } catch (error) {
       console.error("Error updating quantity:", error);
       toast.error("数量の更新に失敗しました");
@@ -214,6 +250,7 @@ export default function CartPage() {
 
       // 合計を再計算
       recalculateTotals(updatedItems);
+      await regroupFromItems(updatedItems);
 
       toast.success("サイズを普通に変更しました");
     } catch (error) {
@@ -278,6 +315,7 @@ export default function CartPage() {
 
       // 合計を再計算
       recalculateTotals(newItems);
+      await regroupFromItems(newItems);
 
       toast.success("サイズを普通に変更しました");
     } catch (error) {
@@ -343,6 +381,7 @@ export default function CartPage() {
 
       // 合計を再計算
       recalculateTotals(newItems);
+      await regroupFromItems(newItems);
 
       toast.success("サイズを大盛りに変更しました");
     } catch (error) {
@@ -411,6 +450,7 @@ export default function CartPage() {
 
       setTotalAmount(total);
       setDiscountAmount(discount);
+      await regroupFromItems(updatedItems);
 
       toast.success(
         newIsTakeout ? "テイクアウトに変更しました" : "イートインに変更しました"
@@ -445,6 +485,7 @@ export default function CartPage() {
 
       setTotalAmount(total);
       setDiscountAmount(discount);
+      await regroupFromItems(remainingItems);
 
       toast.success("商品をカートから削除しました");
     } catch (error) {
@@ -464,11 +505,48 @@ export default function CartPage() {
         return;
       }
 
+      // 選択されたアイテム指定をクリア（全体注文用）
+      try {
+        localStorage.removeItem("checkout_item_ids");
+      } catch {}
+
       // ユーザーIDまたは一意の決済IDを生成
       const paymentId = `payment_${Date.now()}_${session.user.id.substring(0, 8)}`;
       router.push(`/orders/cart/payment/${paymentId}`);
     } catch (error) {
       console.error("Error proceeding to checkout:", error);
+      toast.error("決済画面への移動に失敗しました");
+    }
+  };
+
+  const proceedToCheckoutForStore = async (storeName: string) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const items = groupedByStore[storeName] || [];
+      if (items.length === 0) {
+        toast.error("この店舗のカートに商品がありません");
+        return;
+      }
+
+      const ids = items.map((i) => i.id);
+      try {
+        localStorage.setItem("checkout_item_ids", JSON.stringify(ids));
+      } catch (e) {
+        console.warn("localStorage書き込みに失敗:", e);
+      }
+
+      const paymentId = `payment_${Date.now()}_${session.user.id.substring(0, 8)}`;
+      router.push(`/orders/cart/payment/${paymentId}`);
+    } catch (error) {
+      console.error("店舗別決済への移動失敗:", error);
       toast.error("決済画面への移動に失敗しました");
     }
   };
@@ -492,75 +570,119 @@ export default function CartPage() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-lg shadow mb-6">
-              {cartItems.map((item) => (
-                <div key={item.id} className="p-4 border-b last:border-b-0">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="sm:w-24 sm:h-24 flex-shrink-0">
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="w-24 h-24 object-cover rounded-md"
-                      />
-                    </div>
-                    <div className="flex-grow">
-                      <h3 className="font-semibold text-lg">{item.name}</h3>
-                      <div className="flex flex-wrap gap-y-2 gap-x-4 mt-2">
-                        {/* 数量 */}
-                        <div className="flex items-center">
-                          <span className="text-gray-600 text-sm mr-2">
-                            数量:
+            <div className="space-y-6">
+              {Object.entries(groupedByStore).map(([storeName, items]) => {
+                const storeTotals = items.reduce(
+                  (acc, it) => {
+                    acc.total += it.total_price;
+                    if (it.is_takeout) acc.discount += 10 * it.quantity;
+                    return acc;
+                  },
+                  { total: 0, discount: 0 }
+                );
+                const storeFinal = storeTotals.total - storeTotals.discount;
+
+                return (
+                  <div key={storeName} className="bg-white rounded-lg shadow">
+                    <div className="p-4 border-b flex items-center justify-between">
+                      <h2 className="text-lg font-semibold">{storeName}</h2>
+                      <div className="text-sm text-gray-600">
+                        小計: ¥{storeTotals.total.toLocaleString()}{" "}
+                        {storeTotals.discount > 0 && (
+                          <span className="ml-2 text-green-600">
+                            割引: -¥{storeTotals.discount.toLocaleString()}
                           </span>
-                          <div className="flex items-center">
-                            <button
-                              onClick={() =>
-                                updateQuantity(item.id, item.quantity - 1)
-                              }
-                              className="p-1 bg-gray-200 rounded-full disabled:opacity-50"
-                              disabled={item.quantity <= 1}
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <span className="mx-2">{item.quantity}</span>
-                            <button
-                              onClick={() =>
-                                updateQuantity(item.id, item.quantity + 1)
-                              }
-                              className="p-1 bg-gray-200 rounded-full disabled:opacity-50"
-                              disabled={item.quantity >= 3}
-                            >
-                              <Plus size={16} />
-                            </button>
+                        )}
+                        <span className="ml-2 font-semibold">
+                          合計: ¥{storeFinal.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-4 border-b last:border-b-0"
+                      >
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <div className="sm:w-24 sm:h-24 flex-shrink-0">
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="w-24 h-24 object-cover rounded-md"
+                            />
+                          </div>
+                          <div className="flex-grow">
+                            <h3 className="font-semibold text-lg">
+                              {item.name}
+                            </h3>
+                            <div className="flex flex-wrap gap-y-2 gap-x-4 mt-2">
+                              <div className="flex items-center">
+                                <span className="text-gray-600 text-sm mr-2">
+                                  数量:
+                                </span>
+                                <div className="flex items-center">
+                                  <button
+                                    onClick={() =>
+                                      updateQuantity(item.id, item.quantity - 1)
+                                    }
+                                    className="p-1 bg-gray-200 rounded-full disabled:opacity-50"
+                                    disabled={item.quantity <= 1}
+                                  >
+                                    <Minus size={16} />
+                                  </button>
+                                  <span className="mx-2">{item.quantity}</span>
+                                  <button
+                                    onClick={() =>
+                                      updateQuantity(item.id, item.quantity + 1)
+                                    }
+                                    className="p-1 bg-gray-200 rounded-full disabled:opacity-50"
+                                    disabled={item.quantity >= 3}
+                                  >
+                                    <Plus size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-4">
+                              <div>
+                                <span className="font-bold">
+                                  ¥{item.price}
+                                  {item.size === "large" ? " + ¥50" : ""}
+                                </span>
+                                <span className="text-gray-600 text-sm ml-2">
+                                  × {item.quantity}
+                                </span>
+                                {item.is_takeout && (
+                                  <span className="text-green-600 text-sm ml-2">
+                                    (-¥{10 * item.quantity})
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => removeItem(item.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={20} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
+                    ))}
 
-                      <div className="flex justify-between items-center mt-4">
-                        <div>
-                          <span className="font-bold">
-                            ¥{item.price}
-                            {item.size === "large" ? " + ¥50" : ""}
-                          </span>
-                          <span className="text-gray-600 text-sm ml-2">
-                            × {item.quantity}
-                          </span>
-                          {item.is_takeout && (
-                            <span className="text-green-600 text-sm ml-2">
-                              (-¥{10 * item.quantity})
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 size={20} />
-                        </button>
-                      </div>
+                    <div className="p-4 flex justify-end">
+                      <button
+                        onClick={() => proceedToCheckoutForStore(storeName)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold"
+                      >
+                        この店舗の注文を確定
+                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="bg-white rounded-lg shadow mb-6 p-4">
@@ -584,15 +706,13 @@ export default function CartPage() {
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={proceedToCheckout}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold"
-              >
-                注文確定へ進む
-              </button>
-            </div>
+            {Object.keys(groupedByStore).length > 1 ? (
+              <div className="mt-4 text-sm text-gray-600">
+                複数店舗の商品が含まれています。各店舗カード内のボタンからご注文ください。
+              </div>
+            ) : (
+              <div className="flex justify-end"></div>
+            )}
           </>
         )}
       </main>

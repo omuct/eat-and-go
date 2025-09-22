@@ -65,13 +65,29 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           return;
         }
 
-        setCartItems(data);
+        // 店舗別遷移などで選択アイテムが指定されている場合に絞り込む
+        let selectedIds: string[] | null = null;
+        try {
+          const raw = localStorage.getItem("checkout_item_ids");
+          if (raw) {
+            selectedIds = JSON.parse(raw);
+          }
+        } catch (e) {
+          console.warn("checkout_item_idsの読み込みに失敗:", e);
+        }
+
+        const filtered =
+          selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0
+            ? (data || []).filter((i: any) => selectedIds!.includes(i.id))
+            : data || [];
+
+        setCartItems(filtered);
 
         // 合計金額と割引額の計算
         let total = 0;
         let discount = 0;
 
-        data.forEach((item) => {
+        filtered.forEach((item) => {
           total += item.total_price;
           if (item.is_takeout) {
             discount += 10 * item.quantity;
@@ -126,6 +142,10 @@ export default function PaymentPage({ params }: PaymentPageProps) {
             userId: session.user.id,
           })
         );
+
+        try {
+          localStorage.removeItem("checkout_item_ids");
+        } catch {}
 
         // PayPay決済画面へリダイレクト
         window.location.href = response.data.data.url;
@@ -188,7 +208,12 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       <main className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
           <button
-            onClick={() => router.back()}
+            onClick={() => {
+              try {
+                localStorage.removeItem("checkout_item_ids");
+              } catch {}
+              router.back();
+            }}
             className="flex items-center text-gray-600 hover:text-gray-800"
           >
             <ChevronLeft size={20} className="mr-1" />
