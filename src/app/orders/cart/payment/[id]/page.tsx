@@ -215,7 +215,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         }
       }
 
-      const { orderId } = await createOrder({
+      const result = await createOrder({
         userId: session.user.id,
         cartItems: cartItems,
         paymentMethod: paymentMethod,
@@ -229,7 +229,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       } catch {}
 
       // 完了画面へ
-      router.push(`/orders/complete?orderId=${orderId}`);
+      router.push(`/orders/complete?orderId=${result.orderId}`);
     } catch (error) {
       console.error("決済処理エラー:", error);
       const errorMessage =
