@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
-import { ChevronLeft, CreditCard, Banknote } from "lucide-react";
+import { ChevronLeft, Banknote } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { generateOrderNumber } from "@/app/_utils/orderNumberGenerator";
-import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
-import { createOrder } from "@/app/_utils/createOrder";
+// import { generateOrderNumber } from "@/app/_utils/orderNumberGenerator";
+// import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
+// import { createOrder } from "@/app/_utils/createOrder";
 import axios from "axios";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 interface CartItem {
   id: string;
@@ -30,14 +31,14 @@ interface PaymentPageProps {
 
 export default function PaymentPage({ params }: PaymentPageProps) {
   const router = useRouter();
-  const paymentId = params.id;
+  // const paymentId = params.id; // 未使用のためコメントアウト
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<
     "cash" | "credit" | "paypay"
   >("cash");
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false); // 未使用のためコメントアウト
   const [processingPayment, setProcessingPayment] = useState(false);
   const [payPayUrl, setPayPayUrl] = useState("");
 
@@ -187,19 +188,35 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         return;
       }
 
-      const response = await axios.post(
-        "/api/orders/create-cash-order",
-        {
-          cartItems: cartItems,
-          paymentMethod: paymentMethod,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
+      console.log("認証済みユーザー:", session.user.id);
 
+      // プロファイルの確認・作成
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profileError && profileError.code === "PGRST116") {
+        // プロファイルが存在しない場合は作成
+        const { error: createError } = await supabase.from("profiles").insert({
+          id: session.user.id,
+          role: "user",
+          name: session.user.email?.split("@")[0] || "ゲスト",
+        });
+
+        if (createError) {
+          console.error("プロファイル作成エラー:", createError);
+          throw new Error("ユーザープロファイルの作成に失敗しました");
+        }
+      }
+
+      const result = await createOrder({
+        userId: session.user.id,
+        cartItems: cartItems,
+        paymentMethod: paymentMethod,
+        supabaseClient: supabase,
+      });
 
       // 注文作成成功後に選択情報をクリア
       try {
@@ -208,8 +225,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       } catch {}
 
       // 完了画面へ
-      router.push(`/orders/complete?orderId=${orderId}`);
-
+      router.push(`/orders/complete?orderId=${result.orderId}`);
     } catch (error) {
       console.error("決済処理エラー:", error);
       const errorMessage =
@@ -397,4 +413,36 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       </main>
     </div>
   );
+}
+async function createOrder({
+  userId,
+  cartItems,
+  paymentMethod,
+  supabaseClient,
+}: {
+  userId: string;
+  cartItems: CartItem[];
+  paymentMethod: "cash" | "credit" | "paypay";
+  supabaseClient: SupabaseClient<any, "public", "public", any, any>;
+}): Promise<{ orderId: string }> {
+  // 仮実装: 注文をSupabaseに保存し、orderIdを返す
+  const { data, error } = await supabaseClient
+    .from("orders")
+    .insert([
+      {
+        user_id: userId,
+        items: cartItems,
+        payment_method: paymentMethod,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error("注文の作成に失敗しました");
+  }
+
+  return { orderId: data.id };
 }
