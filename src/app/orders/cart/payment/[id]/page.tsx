@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
-import { ChevronLeft, CreditCard, Banknote } from "lucide-react";
+import { ChevronLeft, Banknote } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { generateOrderNumber } from "@/app/_utils/orderNumberGenerator";
-import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
-import { createOrder } from "@/app/_utils/createOrder";
+// import { generateOrderNumber } from "@/app/_utils/orderNumberGenerator";
+// import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
+// import { createOrder } from "@/app/_utils/createOrder";
 import axios from "axios";
 
 interface CartItem {
@@ -30,14 +30,14 @@ interface PaymentPageProps {
 
 export default function PaymentPage({ params }: PaymentPageProps) {
   const router = useRouter();
-  const paymentId = params.id;
+  // const paymentId = params.id; // 未使用のためコメントアウト
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<
     "cash" | "credit" | "paypay"
   >("cash");
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false); // 未使用のためコメントアウト
   const [processingPayment, setProcessingPayment] = useState(false);
   const [payPayUrl, setPayPayUrl] = useState("");
 
@@ -178,16 +178,11 @@ export default function PaymentPage({ params }: PaymentPageProps) {
   // 従来の決済処理（現金・クレジット）
   const handleProcessPayment = async () => {
     setProcessingPayment(true);
-
     try {
-      // セッション確認
       const {
         data: { session },
-        error: sessionError,
       } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        console.error("認証エラー:", sessionError);
+      if (!session) {
         router.push("/login");
         return;
       }
