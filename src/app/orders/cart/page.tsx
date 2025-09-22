@@ -31,6 +31,55 @@ export default function CartPage() {
     Record<string, CartItem[]>
   >({});
 
+  const dedupeCartIfNeeded = async (
+    items: CartItem[],
+    userId: string
+  ): Promise<boolean> => {
+    try {
+      const groups: Record<string, CartItem[]> = {};
+      for (const it of items) {
+        const key = `${it.food_id}`; // サイズ・テイクアウトは無視
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(it);
+      }
+
+      let changed = false;
+      for (const key of Object.keys(groups)) {
+        const group = groups[key];
+        if (group.length <= 1) continue;
+        changed = true;
+
+        // 代表行を先頭にして残りを削除対象に
+        const [keeper, ...dups] = group;
+        const sumQty = group.reduce((s, it) => s + (it.quantity || 0), 0);
+        const unitPrice = keeper.price; // 常に基本価格
+        const newTotal = unitPrice * sumQty;
+
+        // 数量・金額を代表行に集約
+        const { error: upErr } = await supabase
+          .from("cart")
+          .update({ quantity: sumQty, total_price: newTotal })
+          .eq("id", keeper.id)
+          .eq("user_id", userId);
+        if (upErr) throw upErr;
+
+        // 重複行を削除
+        const delIds = dups.map((d) => d.id);
+        const { error: delErr } = await supabase
+          .from("cart")
+          .delete()
+          .in("id", delIds)
+          .eq("user_id", userId);
+        if (delErr) throw delErr;
+      }
+
+      return changed;
+    } catch (e) {
+      console.error("カート重複解消エラー:", e);
+      return false;
+    }
+  };
+
   const regroupFromItems = async (items: CartItem[]) => {
     try {
       const foodIds = Array.from(new Set(items.map((i) => i.food_id)));
@@ -80,9 +129,24 @@ export default function CartPage() {
 
       console.log("カートアイテム取得結果:", data);
 
-      const cartData = data || [];
+      let cartData = data || [];
+
+      // 既存の重複（同一商品/バリアントの複数行）があれば集約
+      const changed = await dedupeCartIfNeeded(cartData, session.user.id);
+      if (changed) {
+        const { data: data2, error: err2 } = await supabase
+          .from("cart")
+          .select("*")
+          .eq("user_id", session.user.id);
+        if (err2) throw err2;
+        cartData = data2 || [];
+      }
       setCartItems(cartData);
-      setCartCount(cartData.length);
+      const qtyCount = (cartData || []).reduce(
+        (sum, it) => sum + (it.quantity || 0),
+        0
+      );
+      setCartCount(qtyCount);
 
       await regroupFromItems(cartData);
 
@@ -470,7 +534,11 @@ export default function CartPage() {
       // 状態から削除したアイテムを除外
       const remainingItems = cartItems.filter((item) => item.id !== itemId);
       setCartItems(remainingItems);
-      setCartCount(remainingItems.length);
+      const qtyCount = remainingItems.reduce(
+        (sum, it) => sum + (it.quantity || 0),
+        0
+      );
+      setCartCount(qtyCount);
 
       // 合計金額と割引額の再計算
       let total = 0;
@@ -508,6 +576,7 @@ export default function CartPage() {
       // 選択されたアイテム指定をクリア（全体注文用）
       try {
         localStorage.removeItem("checkout_item_ids");
+        localStorage.removeItem("checkout_items_snapshot");
       } catch {}
 
       // ユーザーIDまたは一意の決済IDを生成
@@ -539,6 +608,23 @@ export default function CartPage() {
       const ids = items.map((i) => i.id);
       try {
         localStorage.setItem("checkout_item_ids", JSON.stringify(ids));
+        // 最新の表示状態をスナップショット保存（数量・サイズ・割引等の反映のため）
+        localStorage.setItem(
+          "checkout_items_snapshot",
+          JSON.stringify(
+            items.map((i) => ({
+              id: i.id,
+              food_id: i.food_id,
+              name: i.name,
+              price: i.price,
+              quantity: i.quantity,
+              image_url: i.image_url,
+              size: i.size,
+              is_takeout: i.is_takeout,
+              total_price: i.total_price,
+            }))
+          )
+        );
       } catch (e) {
         console.warn("localStorage書き込みに失敗:", e);
       }

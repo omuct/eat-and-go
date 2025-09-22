@@ -53,16 +53,25 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           return;
         }
 
-        const { data, error } = await supabase
-          .from("cart")
-          .select("*")
-          .eq("user_id", session.user.id);
+        // まずスナップショットがあればそれを使用
+        let snapshotItems: CartItem[] | null = null;
+        try {
+          const rawSnap = localStorage.getItem("checkout_items_snapshot");
+          if (rawSnap) snapshotItems = JSON.parse(rawSnap);
+        } catch {}
 
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-          router.push("/orders");
-          return;
+        let fetched: any[] = [];
+        if (!snapshotItems) {
+          const { data, error } = await supabase
+            .from("cart")
+            .select("*")
+            .eq("user_id", session.user.id);
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            router.push("/orders");
+            return;
+          }
+          fetched = data;
         }
 
         // 店舗別遷移などで選択アイテムが指定されている場合に絞り込む
@@ -76,10 +85,16 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           console.warn("checkout_item_idsの読み込みに失敗:", e);
         }
 
-        const filtered =
+        const source = snapshotItems ?? fetched;
+        let filtered =
           selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0
-            ? (data || []).filter((i: any) => selectedIds!.includes(i.id))
-            : data || [];
+            ? (source || []).filter((i: any) => selectedIds!.includes(i.id))
+            : source || [];
+
+        // 選択IDがあるのに一致が0件なら全件にフォールバック
+        if (selectedIds && selectedIds.length > 0 && filtered.length === 0) {
+          filtered = source || [];
+        }
 
         setCartItems(filtered);
 
@@ -145,6 +160,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
 
         try {
           localStorage.removeItem("checkout_item_ids");
+          localStorage.removeItem("checkout_items_snapshot");
         } catch {}
 
         // PayPay決済画面へリダイレクト
@@ -184,13 +200,16 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         }
       );
 
-      if (response.data.success) {
-        const orderId = response.data.orderId;
-        // 完了画面へ
-        router.push(`/orders/complete?orderId=${orderId}`);
-      } else {
-        throw new Error(response.data.details || "注文作成APIエラー");
-      }
+
+      // 注文作成成功後に選択情報をクリア
+      try {
+        localStorage.removeItem("checkout_item_ids");
+        localStorage.removeItem("checkout_items_snapshot");
+      } catch {}
+
+      // 完了画面へ
+      router.push(`/orders/complete?orderId=${orderId}`);
+
     } catch (error) {
       console.error("決済処理エラー:", error);
       const errorMessage =
@@ -211,6 +230,7 @@ export default function PaymentPage({ params }: PaymentPageProps) {
             onClick={() => {
               try {
                 localStorage.removeItem("checkout_item_ids");
+                localStorage.removeItem("checkout_items_snapshot");
               } catch {}
               router.back();
             }}

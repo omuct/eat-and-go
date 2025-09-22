@@ -80,7 +80,7 @@ function PaymentStatusContent() {
         }
 
         if (!merchantPaymentId && !paymentInfo?.merchantPaymentId) {
-          toast.error("決済IDが見つかりません");
+          //toast.error("決済IDが見つかりません");
           router.push("/orders/cart");
           return;
         }
