@@ -103,7 +103,15 @@ export async function createOrder(payload: OrderCreationPayload) {
   if (detailsError) throw detailsError;
 
   // 6. カートを空にする
-  await supabaseClient.from("cart").delete().eq("user_id", userId);
+  try {
+    const idsToDelete = cartItems.map((i) => i.id);
+    if (idsToDelete.length > 0) {
+      await supabaseClient.from("cart").delete().in("id", idsToDelete);
+    }
+  } catch (e) {
+    console.error("カート部分削除エラー:", e);
+    // 失敗しても注文自体は作成済みのため致命的ではない。ログのみ残す。
+  }
 
   // 7. 確認メールを送信
   try {
