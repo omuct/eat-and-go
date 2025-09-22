@@ -43,6 +43,7 @@ export default function OrdersPage() {
   const [quantity, setQuantity] = useState(1);
   const [isLargeSize, setIsLargeSize] = useState(false);
   const [isTakeout, setIsTakeout] = useState(false);
+  const [selectedFoodCartQty, setSelectedFoodCartQty] = useState(0);
 
   const isTakeoutAvailable = () => {
     const now = new Date();
@@ -67,13 +68,16 @@ export default function OrdersPage() {
         .eq("user_id", session.user.id);
 
       if (error) throw error;
-      console.log("現在のカートアイテム数:", data?.length || 0);
-      setCartCount(data?.length || 0);
+      const count = (data || []).reduce(
+        (sum, it) => sum + (it.quantity || 0),
+        0
+      );
+      console.log("現在のカート数量合計:", count);
+      setCartCount(count);
     } catch (error) {
       console.error("Error fetching cart count:", error);
     }
   };
-
 
   // ページがフォーカスされた時にカート数を再読み込み
   useEffect(() => {
@@ -172,13 +176,6 @@ export default function OrdersPage() {
 
       if (cartError) throw cartError;
 
-      // 最大5個までの制限をチェック
-      if (cartItems && cartItems.length >= 5) {
-        toast.error("カートには最大5個までしか商品を追加できません");
-        setShowOrderModal(false);
-        return;
-      }
-
       // 同じ商品の数をチェック
       const sameItems =
         cartItems?.filter((item) => item.food_id === selectedFood.id) || [];
@@ -193,29 +190,55 @@ export default function OrdersPage() {
         return;
       }
 
-      // 価格計算
+      // 価格計算（サイズ差分は無視して常に基本価格）
       let totalPrice = selectedFood.price * quantity;
-      if (
-        isLargeSize &&
-        (selectedFood.category === "丼" || selectedFood.category === "麺")
-      ) {
-        totalPrice += 50 * quantity; // 大盛りは+50円
+
+      // 同じ商品（food_id）で既存行を検索（サイズ/テイクアウトは無視）
+      const { data: existingRows, error: existingErr } = await supabase
+        .from("cart")
+        .select("id, quantity")
+        .eq("user_id", session.user.id)
+        .eq("food_id", selectedFood.id)
+        .limit(1);
+
+      if (existingErr) throw existingErr;
+
+      if (existingRows && existingRows.length > 0) {
+        const existingVariant = existingRows[0];
+        // 既存行に数量を加算
+        const unitPrice = selectedFood.price;
+        const newQuantity = existingVariant.quantity + quantity;
+        const newTotalPrice = unitPrice * newQuantity;
+
+        const { error: updateError } = await supabase
+          .from("cart")
+          .update({ quantity: newQuantity, total_price: newTotalPrice })
+          .eq("id", existingVariant.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // 最大5行（異なる商品/バリアント）までの制限をチェック（新規行追加時のみ）
+        if (cartItems && cartItems.length >= 5) {
+          toast.error("カートには最大5個までしか商品を追加できません");
+          setShowOrderModal(false);
+          return;
+        }
+
+        // 新規行として追加
+        const { error } = await supabase.from("cart").insert({
+          user_id: session.user.id,
+          food_id: selectedFood.id,
+          name: selectedFood.name,
+          price: selectedFood.price,
+          quantity: quantity,
+          image_url: selectedFood.image_url,
+          size: "regular",
+          is_takeout: isTakeout,
+          total_price: totalPrice,
+        });
+
+        if (error) throw error;
       }
-
-      // カートに商品を追加
-      const { error } = await supabase.from("cart").insert({
-        user_id: session.user.id,
-        food_id: selectedFood.id, // すでにUUID形式の文字列
-        name: selectedFood.name,
-        price: selectedFood.price,
-        quantity: quantity,
-        image_url: selectedFood.image_url,
-        size: isLargeSize ? "large" : "regular",
-        is_takeout: isTakeout,
-        total_price: totalPrice,
-      });
-
-      if (error) throw error;
 
       // カート内のアイテム数を更新して通知
       await fetchCartItemCount();
@@ -258,6 +281,29 @@ export default function OrdersPage() {
     setQuantity(1);
     setIsLargeSize(false);
     setIsTakeout(false);
+    setSelectedFoodCartQty(0);
+
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+        const { data, error } = await supabase
+          .from("cart")
+          .select("quantity")
+          .eq("user_id", session.user.id)
+          .eq("food_id", food.id);
+        if (error) throw error;
+        const current = (data || []).reduce(
+          (sum, it: any) => sum + (it.quantity || 0),
+          0
+        );
+        setSelectedFoodCartQty(current);
+      } catch (e) {
+        console.warn("同一商品のカート数量取得に失敗:", e);
+      }
+    })();
   };
 
   // 利用可能な店舗一覧を取得
@@ -487,7 +533,6 @@ export default function OrdersPage() {
                 : "商品がありません"}
             </div>
           ) : (
-
             // 店舗別グループ表示（常に店舗名でソート）
             (() => {
               const groupedFoods = getGroupedFoods();
@@ -569,47 +614,34 @@ export default function OrdersPage() {
 
               <div className="mb-4">
                 <p className="font-bold text-lg">¥{selectedFood.price}</p>
-                {isLargeSize &&
-                  (selectedFood.category === "丼" ||
-                    selectedFood.category === "麺") && (
-                    <p className="text-blue-600">+¥50 (大盛り)</p>
-                  )}
               </div>
 
-              {/* サイズオプション（丼と麺のみ） */}
-              {(selectedFood.category === "丼" ||
-                selectedFood.category === "麺") && (
-                <div className="mb-4">
-                  <p className="font-medium mb-2">
-                    サイズ{" "}
-                    <span className="text-red-500 text-xs">
-                      ※カートに追加後は変更できません
-                    </span>
-                  </p>
-                  <div className="flex gap-3">
-                    <button
-                      className={`px-4 py-2 rounded-md ${
-                        !isLargeSize
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-800"
-                      }`}
-                      onClick={() => setIsLargeSize(false)}
-                    >
-                      普通
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-md ${
-                        isLargeSize
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-800"
-                      }`}
-                      onClick={() => setIsLargeSize(true)}
-                    >
-                      大盛り (+¥50)
-                    </button>
-                  </div>
+              {/* 数量コントロール */}
+              <div className="mb-4">
+                <p className="font-medium mb-2">数量</p>
+                <div className="flex items-center">
+                  <button
+                    className="p-2 bg-gray-200 rounded-full disabled:opacity-50"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
+                  >
+                    <Minus size={18} />
+                  </button>
+                  <span className="mx-3 text-lg font-semibold">{quantity}</span>
+                  <button
+                    className="p-2 bg-gray-200 rounded-full disabled:opacity-50"
+                    onClick={() => setQuantity((q) => q + 1)}
+                    disabled={quantity + selectedFoodCartQty >= 3}
+                  >
+                    <Plus size={18} />
+                  </button>
                 </div>
-              )}
+                <p className="text-xs text-gray-500 mt-1">
+                  同じ商品は合計3個まで（カート内: {selectedFoodCartQty} 個）
+                </p>
+              </div>
+
+              {/* サイズ選択は無効化（統一仕様により常に普通サイズ） */}
 
               <button
                 onClick={handleAddToCart}
