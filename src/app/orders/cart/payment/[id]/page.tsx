@@ -11,6 +11,7 @@ import "react-toastify/dist/ReactToastify.css";
 // import { sendOrderConfirmationEmail } from "@/app/_utils/sendOrderEmail";
 // import { createOrder } from "@/app/_utils/createOrder";
 import axios from "axios";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 interface CartItem {
   id: string;
@@ -412,4 +413,36 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       </main>
     </div>
   );
+}
+async function createOrder({
+  userId,
+  cartItems,
+  paymentMethod,
+  supabaseClient,
+}: {
+  userId: string;
+  cartItems: CartItem[];
+  paymentMethod: "cash" | "credit" | "paypay";
+  supabaseClient: SupabaseClient<any, "public", "public", any, any>;
+}): Promise<{ orderId: string }> {
+  // 仮実装: 注文をSupabaseに保存し、orderIdを返す
+  const { data, error } = await supabaseClient
+    .from("orders")
+    .insert([
+      {
+        user_id: userId,
+        items: cartItems,
+        payment_method: paymentMethod,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error("注文の作成に失敗しました");
+  }
+
+  return { orderId: data.id };
 }
