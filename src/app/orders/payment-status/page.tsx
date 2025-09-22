@@ -177,7 +177,7 @@ function PaymentStatusContent() {
     checkPaymentStatus();
   }, [searchParams, router, retryCount, orderData, isCreatingOrder]);
 
-  // 注文データの作成（[id]/page.tsx の機能を統合）
+  // 注文データの作成（共通API経由で現金払いと同じ生成ロジックを使用）
   const createOrder = async (paymentInfo: any): Promise<OrderData | null> => {
     if (isCreatingOrder) return null; // 重複実行防止
 
@@ -195,87 +195,45 @@ function PaymentStatusContent() {
         return null;
       }
 
-      // 注文番号を生成（タイムスタンプベース）
-      const orderNumber = `ORD${Date.now().toString().slice(-8)}`;
-
-      // 注文データを作成
-      const orderDataInput = {
-        user_id: session.user.id,
-        total_amount: paymentInfo.amount,
-        discount_amount: 0,
-        payment_method: "paypay",
-        status: "pending",
-        order_number: orderNumber,
-        paypay_merchant_payment_id: paymentData?.merchantPaymentId,
-        created_at: new Date().toISOString(),
-      };
-
-      console.log("注文データ作成中:", orderDataInput);
-
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert(orderDataInput)
-        .select()
-        .single();
-
-      if (orderError) {
-        console.error("注文作成エラー:", orderError);
-        throw orderError;
-      }
-
-      // 注文詳細を作成
-      if (paymentInfo.cartItems && paymentInfo.cartItems.length > 0) {
-        const orderDetailsData = paymentInfo.cartItems.map((item: any) => ({
-          order_id: order.id,
-          food_id: item.food_id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          size: item.size,
-          is_takeout: item.is_takeout,
-          amount: item.total_price,
-        }));
-
-        const { error: detailsError } = await supabase
-          .from("order_details")
-          .insert(orderDetailsData);
-
-        if (detailsError) {
-          console.error("注文詳細作成エラー:", detailsError);
-          throw detailsError;
+      // サーバーAPI経由で注文作成（createOrder -> generateOrderNumber を使用）
+      const response = await axios.post(
+        "/api/orders/create-from-paypay",
+        {
+          userId: session.user.id,
+          cartItems: paymentInfo.cartItems,
+          merchantPaymentId: paymentInfo.merchantPaymentId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         }
+      );
+
+      if (!response.data?.success || !response.data?.orderId) {
+        throw new Error(
+          response.data?.details || "サーバーでの注文作成に失敗しました"
+        );
       }
 
-      // カートをクリア
-      const { error: cartError } = await supabase
-        .from("cart")
-        .delete()
-        .eq("user_id", session.user.id);
-
-      if (cartError) {
-        console.error("カートクリアエラー:", cartError);
-      }
+      const orderId: string = response.data.orderId;
+      const orderNumber: string = response.data.orderNumber;
 
       // ローカルストレージをクリア
       try {
         localStorage.removeItem("paypay_payment_data");
-      } catch (e) {
-        console.log("localStorage is not available on server side");
-      }
+      } catch {}
 
-      console.log("注文作成完了:", order);
-
-      // 注文データを状態に保存
       const orderDataResult: OrderData = {
-        id: order.id,
-        orderNumber: order.order_number,
-        totalAmount: order.total_amount,
-        paymentMethod: order.payment_method,
-        createdAt: order.created_at,
+        id: orderId,
+        orderNumber: orderNumber,
+        totalAmount: paymentInfo.amount,
+        paymentMethod: "paypay",
+        createdAt: new Date().toISOString(),
       };
 
       setOrderData(orderDataResult);
-      toast.success(`注文が完了しました（注文番号: ${order.order_number}）`);
+      toast.success(`注文が完了しました（注文番号: ${orderNumber}）`);
 
       return orderDataResult;
     } catch (error: any) {
