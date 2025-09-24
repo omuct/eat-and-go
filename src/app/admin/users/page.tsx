@@ -31,6 +31,7 @@ interface UserProfile {
   role: "admin" | "store_staff" | "user";
   phone: string | null;
   address: string | null;
+  points: number; // profiles.points
 }
 
 interface Store {
@@ -70,7 +71,8 @@ export default function AdminUsersPage() {
     role: "admin" | "store_staff" | "user";
     store_id: number | null;
     is_admin: boolean;
-  }>({ role: "user", store_id: null, is_admin: false });
+    points: number;
+  }>({ role: "user", store_id: null, is_admin: false, points: 0 });
 
   const usersPerPage = 10;
 
@@ -82,7 +84,7 @@ export default function AdminUsersPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          `id, name, email, created_at, updated_at, is_admin, role, phone, address`
+          `id, name, email, created_at, updated_at, is_admin, role, phone, address, points`
         )
         .order("created_at", { ascending: false });
 
@@ -103,6 +105,10 @@ export default function AdminUsersPage() {
         role: (user.role as "admin" | "store_staff" | "user") || "user",
         phone: user.phone ? String(user.phone) : null,
         address: user.address ? String(user.address) : null,
+        points:
+          typeof user.points === "number"
+            ? user.points
+            : Number(user.points ?? 0),
       }));
 
       setUsers(typedUsers);
@@ -194,7 +200,8 @@ export default function AdminUsersPage() {
           (user.role?.toLowerCase() || "").includes(lowerTerm) ||
           (user.phone?.toLowerCase() || "").includes(lowerTerm) ||
           (user.address?.toLowerCase() || "").includes(lowerTerm) ||
-          (userStore?.name?.toLowerCase() || "").includes(lowerTerm) // 店舗名検索を追加
+          (userStore?.name?.toLowerCase() || "").includes(lowerTerm) || // 店舗名検索を追加
+          String(user.points).includes(lowerTerm)
         );
       });
     }
@@ -240,6 +247,7 @@ export default function AdminUsersPage() {
       role: user.role,
       store_id: storeStaff.find((s) => s.user_id === user.id)?.store_id || null,
       is_admin: user.is_admin,
+      points: typeof user.points === "number" ? user.points : 0,
     });
   };
 
@@ -260,11 +268,15 @@ export default function AdminUsersPage() {
       }
 
       // プロフィール更新
+      const normalizedPoints = Number.isFinite(Number(editForm.points))
+        ? Math.max(0, Math.floor(Number(editForm.points)))
+        : 0;
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           role: editForm.role,
           is_admin: editForm.role === "admin" ? true : editForm.is_admin,
+          points: normalizedPoints,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
@@ -309,7 +321,9 @@ export default function AdminUsersPage() {
       const selectedStore = stores.find((s) => s.id === editForm.store_id);
       const storeMessage = selectedStore ? ` (${selectedStore.name})` : "";
 
-      toast.success(`ユーザー情報を更新しました${storeMessage}`);
+      toast.success(
+        `ユーザー情報を更新しました${storeMessage}（ポイント: ${normalizedPoints}pt）`
+      );
       setEditingUser(null);
 
       // データを再取得
@@ -531,6 +545,9 @@ export default function AdminUsersPage() {
                     所属店舗
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ポイント
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     連絡先（メールアドレス）
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -669,6 +686,30 @@ export default function AdminUsersPage() {
                           </div>
                         ) : (
                           <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {isEditing ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={editForm.points}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  points: Number(e.target.value ?? 0),
+                                })
+                              }
+                              className="w-28 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="text-gray-600">pt</span>
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-gray-800">
+                            {Number(user.points ?? 0).toLocaleString()} pt
+                          </span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
