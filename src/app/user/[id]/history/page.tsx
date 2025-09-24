@@ -143,14 +143,6 @@ export default function UserOrderHistoryPage() {
                       {getStatusLabel(order.status)}
                     </span>
                   </span>
-                  <button
-                    className="text-blue-600 hover:underline text-sm"
-                    onClick={() =>
-                      router.push(`/orders/complete?id=${order.id}`)
-                    }
-                  >
-                    詳細を見る
-                  </button>
                 </div>
               </div>
             ))}
