@@ -73,6 +73,8 @@ export default function AdminUsersPage() {
     is_admin: boolean;
     points: number;
   }>({ role: "user", store_id: null, is_admin: false, points: 0 });
+  // 数値入力の空文字制御用（表示用文字列 state）
+  const [pointsInput, setPointsInput] = useState<string>("");
 
   const usersPerPage = 10;
 
@@ -249,6 +251,7 @@ export default function AdminUsersPage() {
       is_admin: user.is_admin,
       points: typeof user.points === "number" ? user.points : 0,
     });
+    setPointsInput(typeof user.points === "number" ? String(user.points) : "0");
   };
 
   // 編集保存
@@ -267,16 +270,22 @@ export default function AdminUsersPage() {
         return;
       }
 
-      // プロフィール更新
-      const normalizedPoints = Number.isFinite(Number(editForm.points))
-        ? Math.max(0, Math.floor(Number(editForm.points)))
-        : 0;
+      // 入力中文字列を数値化（空なら0）
+      let numericPoints = 0;
+      if (pointsInput.trim() !== "") {
+        const parsed = Number(pointsInput);
+        if (Number.isNaN(parsed) || parsed < 0) {
+          toast.error("ポイントは0以上の整数で入力してください");
+          return;
+        }
+        numericPoints = Math.floor(parsed);
+      }
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           role: editForm.role,
           is_admin: editForm.role === "admin" ? true : editForm.is_admin,
-          points: normalizedPoints,
+          points: numericPoints,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
@@ -322,9 +331,10 @@ export default function AdminUsersPage() {
       const storeMessage = selectedStore ? ` (${selectedStore.name})` : "";
 
       toast.success(
-        `ユーザー情報を更新しました${storeMessage}（ポイント: ${normalizedPoints}pt）`
+        `ユーザー情報を更新しました${storeMessage}（ポイント: ${numericPoints}pt）`
       );
       setEditingUser(null);
+      setPointsInput("");
 
       // データを再取得
       await Promise.all([fetchUsers(), fetchStoreStaff()]);
@@ -338,6 +348,7 @@ export default function AdminUsersPage() {
   // 編集キャンセル
   const handleCancel = () => {
     setEditingUser(null);
+    setPointsInput("");
   };
 
   // 更新ボタンのハンドラー
@@ -692,17 +703,27 @@ export default function AdminUsersPage() {
                         {isEditing ? (
                           <div className="flex items-center space-x-2">
                             <input
-                              type="number"
-                              min={0}
-                              step={1}
-                              value={editForm.points}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  points: Number(e.target.value ?? 0),
-                                })
-                              }
-                              className="w-28 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              type="text"
+                              inputMode="numeric"
+                              value={pointsInput}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "") {
+                                  setPointsInput("");
+                                  return;
+                                }
+                                const digits = val.replace(/[^0-9]/g, "");
+                                const normalized = digits.replace(
+                                  /^0+(\d)/,
+                                  "$1"
+                                );
+                                setPointsInput(normalized);
+                              }}
+                              onBlur={() => {
+                                if (pointsInput === "") setPointsInput("0");
+                              }}
+                              className="w-28 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
                             />
                             <span className="text-gray-600">pt</span>
                           </div>
