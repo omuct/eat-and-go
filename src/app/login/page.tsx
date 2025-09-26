@@ -4,7 +4,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Clock, Info, CheckCircle, XCircle, Utensils } from "lucide-react";
+import {
+  Clock,
+  Info,
+  CheckCircle,
+  XCircle,
+  Utensils,
+  Eye,
+  EyeOff,
+  UserPlus,
+} from "lucide-react";
 import { format, parse } from "date-fns";
 
 export default function Login() {
@@ -12,6 +21,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isOperating, setIsOperating] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -182,6 +192,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                 required
               />
@@ -194,14 +205,31 @@ export default function Login() {
               >
                 パスワード
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="w-full pr-11 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={
+                    showPassword ? "パスワードを非表示" : "パスワードを表示"
+                  }
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1 rounded"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
@@ -210,13 +238,17 @@ export default function Login() {
             >
               ログイン
             </button>
+
+            {/* 新規登録 強調ボタン */}
+            <Link
+              href="/login/new"
+              className="mt-2 inline-flex items-center justify-center w-full py-2 px-4 rounded-md border-2 border-gray-800 text-gray-800 bg-white hover:bg-gray-50 transition-colors font-semibold"
+            >
+              <UserPlus className="w-5 h-5 mr-2" /> 新規登録
+            </Link>
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <Link href="/login/new" className="text-gray-600 hover:underline">
-              アカウント作成
-            </Link>
-            <span className="mx-2 text-gray-400">•</span>
             <Link
               href="/login/reissue"
               className="text-gray-600 hover:underline"
