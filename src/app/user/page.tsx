@@ -55,7 +55,7 @@ export default function UserPage() {
               <Coins size={24} className="text-yellow-500" />
               <h2 className="text-xl font-semibold">ポイント確認</h2>
             </div>
-            <p className="text-gray-600">保有ポイント・履歴を確認できます。</p>
+            <p className="text-gray-600">保有ポイントを確認できます。</p>
           </div>
 
           {/* アカウント情報カード */}
