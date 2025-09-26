@@ -485,22 +485,27 @@ export default function OrdersPage() {
           {/* 店舗選択ドロップダウン */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">
-                  店舗を選択:
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-black-500 mb-1">
+                  　　　　　　　　　カテゴリー
                 </span>
-                <select
-                  value={selectedStore}
-                  onChange={(e) => setSelectedStore(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                >
-                  <option value="">全ての店舗</option>
-                  {availableStores.map((store) => (
-                    <option key={store} value={store}>
-                      {store}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    店舗を選択:
+                  </span>
+                  <select
+                    value={selectedStore}
+                    onChange={(e) => setSelectedStore(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  >
+                    <option value="">全ての店舗</option>
+                    {availableStores.map((store) => (
+                      <option key={store} value={store}>
+                        {store}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* 選択状態の表示 */}

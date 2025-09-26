@@ -5,11 +5,16 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowLeft,
+  faEye,
+  faEyeSlash,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -29,7 +34,7 @@ export default function Signup() {
     await supabase.auth.signOut();
 
     alert(
-      "アカウント作成が完了しました。ご登録いただいたメールアドレス宛に、認証メールをお送りいたしましたのご確認後ログインをお願いします。ログインページに移動します"
+      "新規登録が完了しました。ご登録いただいたメールアドレス宛に、認証メールをお送りいたしましたのご確認後ログインをお願いします。ログインページに移動します"
     );
     router.push("/login");
   };
@@ -46,7 +51,14 @@ export default function Signup() {
         >
           <FontAwesomeIcon icon={faArrowLeft} className="text-xl" />
         </Link>
-        <h2 className="text-2xl mb-4 text-center">アカウント登録</h2>
+        {/* アプリ概要（要約） */}
+        <div className="mb-4 p-3 rounded border bg-gray-50 text-sm text-gray-700">
+          <p className="font-medium mb-1">アプリの概要</p>
+          <p>
+            スマホだけで注文から決済まで完結できるモバイルオーダーに対応し、出来上がり通知で待ち時間を有効活用、行列を緩和します。さらに、QRスキャンでゴミ捨てをエコポイントとして付与し、貯まったポイントは景品と交換可能。加えて、マップでゴミ箱の場所と混雑状況をリアルタイムに確認でき、空いているゴミ箱へ誘導してあふれを防ぎます。
+          </p>
+        </div>
+        <h2 className="text-2xl mb-4 text-center">新規登録</h2>
         <input
           type="email"
           placeholder="メールアドレス"
@@ -55,19 +67,30 @@ export default function Signup() {
           className="w-full p-2 mb-4 border rounded"
           required
         />
-        <input
-          type="password"
-          placeholder="パスワード"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-2 mb-4 border rounded"
-          required
-        />
+        <div className="relative mb-4">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="パスワード"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 pr-10 border rounded"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700"
+            aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
+            aria-pressed={showPassword}
+          >
+            <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+          </button>
+        </div>
         <button
           type="submit"
           className="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600"
         >
-          アカウント作成
+          新規登録
         </button>
       </form>
     </div>
