@@ -8,7 +8,6 @@ import { ChevronLeft, Banknote } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
-// import { SupabaseClient } from "@supabase/supabase-js";
 
 interface CartItem {
   id: string;
@@ -28,14 +27,12 @@ interface PaymentPageProps {
 
 export default function PaymentPage({ params }: PaymentPageProps) {
   const router = useRouter();
-  // const paymentId = params.id; // 未使用のためコメントアウト
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<
     "cash" | "credit" | "paypay"
   >("cash");
-  // const [loading, setLoading] = useState(false); // 未使用のためコメントアウト
   const [processingPayment, setProcessingPayment] = useState(false);
   const [payPayUrl, setPayPayUrl] = useState("");
 
@@ -51,7 +48,6 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           return;
         }
 
-        // まずスナップショットがあればそれを使用
         let snapshotItems: CartItem[] | null = null;
         try {
           const rawSnap = localStorage.getItem("checkout_items_snapshot");
@@ -72,7 +68,6 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           fetched = data;
         }
 
-        // 店舗別遷移などで選択アイテムが指定されている場合に絞り込む
         let selectedIds: string[] | null = null;
         try {
           const raw = localStorage.getItem("checkout_item_ids");
@@ -88,15 +83,10 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0
             ? (source || []).filter((i: any) => selectedIds!.includes(i.id))
             : ((source || []) as CartItem[]);
-
-        // 選択IDがあるのに一致が0件なら全件にフォールバック
         if (selectedIds && selectedIds.length > 0 && filtered.length === 0) {
           filtered = (source || []) as CartItem[];
         }
-
         setCartItems(filtered);
-
-        // 合計金額と割引額の計算
         let total = 0;
         let discount = 0;
 
@@ -114,11 +104,9 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         toast.error("カート情報の取得に失敗しました");
       }
     };
-
     fetchCartItems();
   }, [router]);
 
-  // PayPay決済処理
   const handlePayPayPayment = async () => {
     setProcessingPayment(true);
     try {
@@ -145,7 +133,6 @@ export default function PaymentPage({ params }: PaymentPageProps) {
       const response = await axios.post("/api/paypay", paymentPayload);
 
       if (response.data?.success && response.data?.data?.url) {
-        // 決済情報をローカルストレージに保存
         localStorage.setItem(
           "paypay_payment_data",
           JSON.stringify({
@@ -155,13 +142,10 @@ export default function PaymentPage({ params }: PaymentPageProps) {
             userId: session.user.id,
           })
         );
-
         try {
           localStorage.removeItem("checkout_item_ids");
           localStorage.removeItem("checkout_items_snapshot");
         } catch {}
-
-        // PayPay決済画面へリダイレクト
         window.location.href = response.data.data.url;
       } else {
         throw new Error("PayPay決済URLの取得に失敗しました");
@@ -173,7 +157,6 @@ export default function PaymentPage({ params }: PaymentPageProps) {
     }
   };
 
-  // 従来の決済処理（現金・クレジット）
   const handleProcessPayment = async () => {
     setProcessingPayment(true);
     try {
@@ -184,13 +167,11 @@ export default function PaymentPage({ params }: PaymentPageProps) {
         router.push("/login");
         return;
       }
-
-      // 現金注文作成はサーバーAPI経由で実行（Brevo等のサーバー専用SDKをクライアントに持ち込まない）
       const response = await axios.post(
         "/api/orders/create-cash-order",
         {
           cartItems: cartItems,
-          paymentMethod: "cash", // ルートは現金のみ対応
+          paymentMethod: "cash",
         },
         {
           headers: {
@@ -198,14 +179,11 @@ export default function PaymentPage({ params }: PaymentPageProps) {
           },
         }
       );
-
-      // 注文作成成功後に選択情報をクリア
       try {
         localStorage.removeItem("checkout_item_ids");
         localStorage.removeItem("checkout_items_snapshot");
       } catch {}
 
-      // 完了画面へ
       const createdOrderId = response.data?.orderId || response.data?.id;
       if (createdOrderId) {
         router.push(`/orders/complete?orderId=${createdOrderId}`);

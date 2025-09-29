@@ -16,11 +16,9 @@ export default function TrashDetailPage() {
   const [type, setType] = useState<string>("pet");
   const [capacity, setCapacity] = useState<number>(30);
   const mapRef = useRef<HTMLDivElement>(null);
-  // 既存ゴミ箱一覧（同じplace_id）
   const [bins, setBins] = useState<any[]>([]);
 
   useEffect(() => {
-    // ゴミ箱情報取得＆同じマップの他のごみ箱も取得
     const fetchBinAndBins = async () => {
       const { data } = await supabase
         .from("trash_bins")
@@ -33,7 +31,6 @@ export default function TrashDetailPage() {
       setEditAmount(data?.amount ?? null);
       setType(data?.type ?? "pet");
       setCapacity(data?.capacity ?? 30);
-      // 地図URL取得＆同じplace_idのごみ箱一覧取得
       if (data?.place_id) {
         const { data: placeData } = await supabase
           .from("places")
@@ -52,13 +49,11 @@ export default function TrashDetailPage() {
     if (id) fetchBinAndBins();
   }, [id]);
 
-  // 地図クリックで座標変更
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!mapRef.current) return;
     const rect = mapRef.current.getBoundingClientRect();
     const xRatio = (e.clientX - rect.left) / rect.width;
     const yRatio = (e.clientY - rect.top) / rect.height;
-    // 仮: 地図範囲をlat/lngで決め打ち（例: 35.0〜35.1, 135.0〜135.1）
     const latVal = 35.0 + 0.1 * yRatio;
     const lngVal = 135.0 + 0.1 * xRatio;
     setEditLat(latVal);
@@ -80,7 +75,6 @@ export default function TrashDetailPage() {
     if (id) fetchBin();
   }, [id]);
 
-  // 位置・内容量%変更
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -102,7 +96,6 @@ export default function TrashDetailPage() {
       alert("更新に失敗しました: " + error.message);
     } else {
       alert("更新しました");
-      // 再取得
       const { data } = await supabase
         .from("trash_bins")
         .select("id, name, amount, lat, lng, place_id, type, capacity")
@@ -115,7 +108,6 @@ export default function TrashDetailPage() {
     }
   };
 
-  // 削除
   const handleDelete = async () => {
     if (!window.confirm("本当に削除しますか？")) return;
     setLoading(true);

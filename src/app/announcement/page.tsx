@@ -19,7 +19,6 @@ export default function NewsListPage() {
           .from("announcements")
           .select("*")
           .order("created_at", { ascending: false });
-
         if (error) throw error;
         setAnnouncements(data || []);
       } catch (error) {
@@ -28,7 +27,6 @@ export default function NewsListPage() {
         setLoading(false);
       }
     };
-
     fetchAnnouncements();
   }, []);
 

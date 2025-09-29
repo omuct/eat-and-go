@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Header from "@/app/_components/Header";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -18,7 +17,6 @@ interface Place {
 export default function PlaceMapPage() {
   const params = useParams();
   const id = params?.id;
-  // ゴミ箱データ取得
   const [bins, setBins] = useState<any[]>([]);
   useEffect(() => {
     if (!id) return;

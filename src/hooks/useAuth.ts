@@ -49,7 +49,6 @@ export const useAuth = () => {
           return;
         }
 
-        // 型安全性を確保するためのプロフィールデータ変換
         const typedProfile = {
           id: String(profile.id),
           name: String(profile.name || ""),
@@ -94,9 +93,7 @@ export const useAuth = () => {
         setLoading(false);
       }
     };
-
     checkAuth();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
@@ -138,7 +135,6 @@ export const useAuth = () => {
       router.push("/");
       return true;
     }
-
     return false;
   };
 

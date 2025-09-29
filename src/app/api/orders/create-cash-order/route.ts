@@ -37,17 +37,14 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    // Supabaseでは、データが存在しない場合に profileError が発生します
     if (profileError) {
       const { error: createError } = await supabase.from("profiles").insert({
         id: user.id,
         name: user.user_metadata?.name || user.email?.split("@")[0] || "ゲスト",
-        email: user.email, // emailも保存しておくと良いでしょう
+        email: user.email,
       });
       if (createError) {
-        // ここでエラーになっても注文処理は続行して良い場合が多いですが、
-        // 念のためログには残します。
-        console.error("プロファイル作成エラー:", createError);
+        throw createError;
       }
     }
 

@@ -1,4 +1,3 @@
-// src/app/admin/announcement/[id]/page.tsx
 "use client";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import dynamic from "next/dynamic";
@@ -73,7 +72,6 @@ export default function EditAnnouncement({
       router.push("/admin/announcement");
     } catch (error) {
       console.error("お知らせ更新エラー:", error);
-      // TODO: ユーザーへのエラー表示
     }
   };
 

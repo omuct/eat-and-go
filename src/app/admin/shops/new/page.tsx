@@ -29,7 +29,6 @@ export default function AddNewStore() {
   const [imagePreview, setImagePreview] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -41,12 +40,10 @@ export default function AddNewStore() {
       reader.readAsDataURL(file);
     }
   };
-
   const uploadImage = async (file: File) => {
     const fileExt = file.name.split(".").pop();
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `${fileName}`;
-
     const { data, error } = await supabase.storage
       .from("store-images")
       .upload(filePath, file);
@@ -56,7 +53,6 @@ export default function AddNewStore() {
     const {
       data: { publicUrl },
     } = supabase.storage.from("store-images").getPublicUrl(filePath);
-
     return publicUrl;
   };
 
@@ -105,9 +101,7 @@ export default function AddNewStore() {
               <span className="font-medium">店舗管理に戻る</span>
             </Link>
           </div>
-
           <h1 className="text-2xl font-bold mb-6">新規店舗追加</h1>
-
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}

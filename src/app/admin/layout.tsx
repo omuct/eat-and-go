@@ -22,7 +22,6 @@ export default function AdminLayout({
     );
   }
 
-  // roleベースの権限チェック
   if (!user || !canAccessAdmin()) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">

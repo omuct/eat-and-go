@@ -17,12 +17,6 @@ interface Store {
   created_at?: string;
 }
 
-interface StoreStaff {
-  id: string;
-  user_id: string;
-  store_id: number;
-}
-
 interface UserProfile {
   id: string;
   role: "admin" | "store_staff" | "user";
@@ -71,7 +65,6 @@ export default function ShopManagement() {
     }
   };
 
-  // 店舗スタッフの所属店舗IDを取得
   const fetchUserStores = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -119,7 +112,6 @@ export default function ShopManagement() {
         created_at: store.created_at ? String(store.created_at) : undefined,
       }));
 
-      // 店舗スタッフの場合は所属店舗のみフィルタリング
       if (userProfile?.role === "store_staff" && allowedStoreIds.length > 0) {
         storesData = storesData.filter((store) =>
           allowedStoreIds.includes(store.id)
@@ -128,7 +120,6 @@ export default function ShopManagement() {
           `店舗スタッフ用フィルタリング: ${storesData.length}店舗表示`
         );
       }
-
       setStores(storesData);
     } catch (error) {
       console.error("Error fetching stores:", error);
@@ -139,7 +130,6 @@ export default function ShopManagement() {
 
   useEffect(() => {
     const initializeData = async () => {
-      // 1. ユーザープロフィールを取得
       const profile = await fetchUserProfile();
 
       if (!profile) {
@@ -147,7 +137,6 @@ export default function ShopManagement() {
         return;
       }
 
-      // 2. 店舗スタッフの場合は所属店舗を取得
       let allowedStoreIds: number[] = [];
       if (profile.role === "store_staff") {
         allowedStoreIds = await fetchUserStores(profile.id);
@@ -158,27 +147,20 @@ export default function ShopManagement() {
           return;
         }
       }
-
-      // 3. 店舗情報を取得（フィルタリング適用）
       await fetchStores(profile, allowedStoreIds);
     };
-
     initializeData();
   }, [router]);
 
   const handleDelete = async (id: number) => {
-    // 店舗スタッフの場合、所属店舗以外は削除不可
     if (userProfile?.role === "store_staff" && !userStoreIds.includes(id)) {
       alert("所属していない店舗は削除できません");
       return;
     }
-
     if (!confirm("本当に削除しますか？")) return;
-
     try {
       const { error } = await supabase.from("stores").delete().eq("id", id);
       if (error) throw error;
-      // 削除後、データを再取得
       const allowedStoreIds =
         userProfile?.role === "store_staff" ? userStoreIds : [];
       await fetchStores(userProfile, allowedStoreIds);
@@ -188,7 +170,6 @@ export default function ShopManagement() {
     }
   };
 
-  // 権限チェック
   if (!userProfile) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -200,7 +181,6 @@ export default function ShopManagement() {
     );
   }
 
-  // 一般ユーザーのアクセス制限
   if (userProfile.role === "user") {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">

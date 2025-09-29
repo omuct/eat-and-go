@@ -34,7 +34,7 @@ export interface Food {
   description: string | null;
   image_url: string;
   category: FoodCategory;
-  waste_category?: WasteCategory; // 新しい分別項目
+  waste_category?: WasteCategory;
   is_published: boolean;
   publish_start_date: string | null;
   publish_end_date: string | null;

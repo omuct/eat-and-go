@@ -30,7 +30,6 @@ interface Order {
 }
 
 export default function UserOrderHistoryPage() {
-  const router = useRouter();
   const params = useParams();
   const userId = params?.id as string;
   const [orders, setOrders] = useState<Order[]>([]);
@@ -53,7 +52,6 @@ export default function UserOrderHistoryPage() {
         console.error("注文履歴取得エラー", error);
         setOrders([]);
       } else {
-        // order_detailsをdetailsとして格納
         const ordersWithDetails = (data || []).map((order: any) => ({
           ...order,
           details: order.order_details || [],
@@ -65,7 +63,6 @@ export default function UserOrderHistoryPage() {
     fetchOrders();
   }, [userId]);
 
-  // 管理画面準拠の日本語ステータスラベル
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "pending":

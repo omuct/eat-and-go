@@ -17,9 +17,6 @@ interface OrderCreationPayload {
   supabaseClient: SupabaseClient;
 }
 
-/**
- * 注文データを作成し、メールを送信する共通関数
- */
 export async function createOrder(payload: OrderCreationPayload) {
   const {
     userId,
@@ -38,7 +35,6 @@ export async function createOrder(payload: OrderCreationPayload) {
     throw new Error("カートが空です。");
   }
 
-  // 1. ストアIDを取得 (カートの最初のアイテムから)
   const firstItem = cartItems[0];
 
   const { data: foodData, error: foodError } = await supabaseClient
@@ -60,12 +56,10 @@ export async function createOrder(payload: OrderCreationPayload) {
   if (storeError || !storeData) {
     throw new Error("店舗情報が見つかりません。");
   }
+
   const storeId = storeData.id;
 
-  // 2. 注文番号を生成
   const orderNumber = await generateOrderNumber(storeId);
-
-  // 3. 合計金額と割引額を計算
   let totalAmount = 0;
   let discountAmount = 0;
   cartItems.forEach((item) => {
@@ -74,9 +68,9 @@ export async function createOrder(payload: OrderCreationPayload) {
       discountAmount += 10 * item.quantity;
     }
   });
+
   const finalAmount = totalAmount - discountAmount;
 
-  // 4. 注文データをordersテーブルに保存
   const { data: order, error: orderError } = await supabaseClient
     .from("orders")
     .insert({
@@ -94,7 +88,6 @@ export async function createOrder(payload: OrderCreationPayload) {
 
   if (orderError) throw orderError;
 
-  // 5. 注文詳細をorder_detailsテーブルに保存
   const orderDetailsData = cartItems.map((item) => ({
     order_id: order.id,
     food_id: item.food_id,
@@ -132,6 +125,7 @@ export async function createOrder(payload: OrderCreationPayload) {
       .single();
 
     const userEmail = profileData?.email;
+
     const userName = profileData?.name || "お客様";
 
     if (userEmail) {
@@ -149,7 +143,7 @@ export async function createOrder(payload: OrderCreationPayload) {
       sendSmtpEmail.to = [{ email: userEmail, name: userName }];
       sendSmtpEmail.sender = {
         email: process.env.EMAIL_FROM!,
-        name: "EAT & GO", // 送信元名はここで統一できます
+        name: "EAT & GO",
       };
       sendSmtpEmail.subject = `【EAT & GO】ご注文ありがとうございます - 注文番号: ${order.order_number}`;
       sendSmtpEmail.htmlContent = emailHtml;
@@ -159,7 +153,6 @@ export async function createOrder(payload: OrderCreationPayload) {
     }
   } catch (emailError) {
     console.error("Order confirmation email sending failed:", emailError);
-    // メール送信が失敗しても、注文作成自体は成功しているので、エラーは投げない
   }
 
   return { orderId: order.id, orderNumber: order.order_number };

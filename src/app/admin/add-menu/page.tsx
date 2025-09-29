@@ -1,4 +1,3 @@
-// src/app/admin/add-menu/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -26,11 +25,6 @@ interface MenuStats {
   published_menus: number;
   unpublished_menus: number;
 }
-interface StoreStaff {
-  id: string;
-  user_id: string;
-  store_id: number;
-}
 
 interface UserProfile {
   id: string;
@@ -43,9 +37,8 @@ export default function MenuManagementStorePage() {
   const [menuStats, setMenuStats] = useState<MenuStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [userStoreIds, setUserStoreIds] = useState<number[]>([]);
+  const [, setUserStoreIds] = useState<number[]>([]);
 
-  // ユーザープロフィールを取得
   const fetchUserProfile = async () => {
     try {
       const {
@@ -82,7 +75,6 @@ export default function MenuManagementStorePage() {
     }
   };
 
-  // 店舗スタッフの所属店舗IDを取得
   const fetchUserStores = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -126,7 +118,6 @@ export default function MenuManagementStorePage() {
         image_url: store.image_url ? String(store.image_url) : undefined,
       }));
 
-      // 店舗スタッフの場合は所属店舗のみフィルタリング
       if (userProfile?.role === "store_staff" && allowedStoreIds.length > 0) {
         storesData = storesData.filter((store) =>
           allowedStoreIds.includes(store.id)
@@ -149,23 +140,18 @@ export default function MenuManagementStorePage() {
   const fetchMenuStats = async (storesData: Store[]) => {
     try {
       const stats: MenuStats[] = [];
-
-      // 各店舗のメニュー統計を取得
       for (const store of storesData) {
-        // 総メニュー数
         const { count: totalCount, error: totalError } = await supabase
           .from("foods")
           .select("*", { count: "exact", head: true })
           .eq("store_name", store.name);
 
-        // 公開中メニュー数
         const { count: publishedCount, error: publishedError } = await supabase
           .from("foods")
           .select("*", { count: "exact", head: true })
           .eq("store_name", store.name)
           .eq("is_published", true);
 
-        // 非公開メニュー数
         const { count: unpublishedCount, error: unpublishedError } =
           await supabase
             .from("foods")
@@ -186,7 +172,6 @@ export default function MenuManagementStorePage() {
           unpublished_menus: unpublishedCount || 0,
         });
       }
-
       setMenuStats(stats);
     } catch (error) {
       console.error("Error fetching menu stats:", error);
@@ -195,15 +180,12 @@ export default function MenuManagementStorePage() {
 
   useEffect(() => {
     const initializeData = async () => {
-      // 1. ユーザープロフィールを取得
       const profile = await fetchUserProfile();
-
       if (!profile) {
         router.push("/login");
         return;
       }
 
-      // 2. 店舗スタッフの場合は所属店舗を取得
       let allowedStoreIds: number[] = [];
       if (profile.role === "store_staff") {
         allowedStoreIds = await fetchUserStores(profile.id);
@@ -216,8 +198,6 @@ export default function MenuManagementStorePage() {
           return;
         }
       }
-
-      // 3. 店舗情報を取得（フィルタリング適用）
       await fetchStores(profile, allowedStoreIds);
     };
 
@@ -236,7 +216,6 @@ export default function MenuManagementStorePage() {
     );
   };
 
-  // 権限チェック
   if (!userProfile) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -248,7 +227,6 @@ export default function MenuManagementStorePage() {
     );
   }
 
-  // 一般ユーザーのアクセス制限
   if (userProfile.role === "user") {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">

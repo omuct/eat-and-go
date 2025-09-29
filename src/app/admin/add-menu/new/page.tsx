@@ -1,4 +1,3 @@
-// src/app/admin/add-menu/new/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +19,7 @@ interface MenuFormData {
   description: string;
   image_url: string;
   category: FoodCategory;
-  waste_category: WasteCategory; // 新しい分別項目
+  waste_category: WasteCategory;
   store_name: string;
 }
 
@@ -35,7 +34,7 @@ export default function AddNewMenu() {
     description: "",
     image_url: "",
     category: "その他",
-    waste_category: "燃えるゴミ", // デフォルト値
+    waste_category: "燃えるゴミ",
     store_name: "",
   });
   const [stores, setStores] = useState<{ id: number; name: string }[]>([]);
@@ -44,7 +43,6 @@ export default function AddNewMenu() {
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // 店舗一覧を取得する関数
   const fetchStores = async () => {
     console.log("店舗データを取得中...");
 
@@ -65,7 +63,6 @@ export default function AddNewMenu() {
 
   useEffect(() => {
     fetchStores();
-    // storeIdが指定されている場合は店舗を事前選択
     if (storeId) {
       const fetchStoreAndSetDefault = async () => {
         const { data, error } = await supabase
@@ -118,7 +115,6 @@ export default function AddNewMenu() {
     setIsLoading(true);
     setError("");
 
-    // バリデーション
     if (!formData.name.trim()) {
       setError("商品名を入力してください");
       setIsLoading(false);
@@ -172,7 +168,7 @@ export default function AddNewMenu() {
         description: formData.description || null,
         image_url: imageUrl,
         category: formData.category,
-        waste_category: formData.waste_category, // 新しい分別項目
+        waste_category: formData.waste_category,
         store_name: formData.store_name || "店舗情報なし",
         is_published: true,
         publish_start_date: null,
@@ -191,7 +187,6 @@ export default function AddNewMenu() {
       console.log("保存成功:", data);
       toast.success("メニューを追加しました");
 
-      // storeIdが指定されている場合は店舗別メニュー管理に戻る
       if (storeId) {
         router.push(`/admin/add-menu/store/${storeId}`);
       } else {
@@ -217,7 +212,6 @@ export default function AddNewMenu() {
           errorMessage += ` (コード: ${error.code})`;
         }
       }
-
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -240,13 +234,11 @@ export default function AddNewMenu() {
           <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
             メニューの新規作成
           </h1>
-
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
-
           <form
             onSubmit={handleSubmit}
             className="bg-white rounded-lg shadow p-6"

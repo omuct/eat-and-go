@@ -13,14 +13,12 @@ import {
   ChevronUp,
   Store,
   Printer,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import React from "react";
-// @ts-ignore
 import QRCode from "qrcode";
 import axios from "axios";
 
@@ -48,7 +46,7 @@ interface Order {
   status_updated_at: string;
   user_name?: string;
   details?: OrderDetail[];
-  order_number?: string; // 追加
+  order_number?: string;
 }
 
 interface Store {
@@ -77,22 +75,14 @@ export default function StoreOrderHistoryPage({
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-
-  // フィルター関連の状態
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // ページング関連の状態
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(10);
-
-  // 印刷回数を追跡するstate
   const [printCounts, setPrintCounts] = useState<{ [orderId: string]: number }>(
     {}
   );
 
-  // 商品の分別カテゴリを取得する関数
   const getWasteCategories = (orderDetails: OrderDetail[]) => {
-    // 商品名から分別を推定（実際のアプリでは商品マスタから取得）
     const wasteCategories = new Set<string>();
 
     orderDetails.forEach((detail) => {
@@ -109,14 +99,11 @@ export default function StoreOrderHistoryPage({
         wasteCategories.add("燃えるゴミ");
       }
     });
-
     return Array.from(wasteCategories);
   };
 
-  // QRコードデータを生成する関数
   const generateQRCodeData = (order: Order) => {
     const wasteCategories = getWasteCategories(order.details || []);
-
     const qrData = {
       orderId: order.id,
       orderNumber: order.order_number || `#${order.id.substring(0, 8)}`,
@@ -137,7 +124,6 @@ export default function StoreOrderHistoryPage({
     return JSON.stringify(qrData);
   };
 
-  // QRコード画像を生成する関数
   const generateQRCodeImage = async (data: string) => {
     try {
       const qrCodeDataUrl = await QRCode.toDataURL(data, {
@@ -152,23 +138,19 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 印刷機能の実装（即座に印刷実行）
   const handlePrintOrder = async (orderId: string, orderStatus: string) => {
-    // 調理済み（ready）と提供済み（served）の場合のみ印刷可能
     if (orderStatus !== "ready" && orderStatus !== "served") {
       toast.warning(`注文 ${orderId.substring(0, 8)}... はまだ調理中です`);
       return;
     }
 
     try {
-      // 注文データを取得
       const order = orders.find((o) => o.id === orderId);
       if (!order) {
         toast.error("注文情報が見つかりません");
         return;
       }
 
-      // 注文詳細が不足している場合は再取得
       if (!order.details || order.details.length === 0) {
         const { data: orderWithDetails, error } = await supabase
           .from("orders")
@@ -203,16 +185,11 @@ export default function StoreOrderHistoryPage({
         order.user_name = orderWithDetails.profiles?.name || "ゲスト";
       }
 
-      // 印刷回数を更新
       const currentPrintCount = printCounts[orderId] || 0;
       const newPrintCount = currentPrintCount + 1;
       setPrintCounts((prev) => ({ ...prev, [orderId]: newPrintCount }));
-
-      // QRコードデータを生成
       const qrData = generateQRCodeData(order);
       const qrImage = await generateQRCodeImage(qrData);
-
-      // 即座に印刷実行（印刷回数を渡す）
       executePrintDirect(order, qrImage, newPrintCount);
     } catch (error) {
       console.error("印刷処理エラー:", error);
@@ -220,7 +197,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 直接印刷を実行する関数（プレビューなし）
   const executePrintDirect = (
     order: Order,
     qrCodeDataUrl: string,
@@ -232,11 +208,9 @@ export default function StoreOrderHistoryPage({
       return;
     }
 
-    // 注文番号
     const baseOrderNumber =
       order.order_number || `#${order.id.substring(0, 8)}`;
 
-    // 各商品を数量分に展開して個別のラベルを作成
     const printLabels: Array<{
       name: string;
       orderNumber: string;
@@ -245,7 +219,6 @@ export default function StoreOrderHistoryPage({
     }> = [];
 
     order.details?.forEach((detail) => {
-      // 商品の数量分だけラベルを作成
       for (let i = 1; i <= detail.quantity; i++) {
         printLabels.push({
           name: detail.name,
@@ -256,7 +229,6 @@ export default function StoreOrderHistoryPage({
       }
     });
 
-    // 各ラベルごとに印刷HTMLを生成（62mm幅、QRコード最大化）
     const printPages = printLabels
       .map(
         (label, index) => `
@@ -428,16 +400,13 @@ export default function StoreOrderHistoryPage({
     printWindow.document.close();
     printWindow.focus();
 
-    // 印刷実行
     setTimeout(() => {
       printWindow.print();
 
-      // 印刷完了後にウィンドウを閉じる
       setTimeout(() => {
         printWindow.close();
       }, 1000);
 
-      // 印刷完了メッセージ
       const totalLabels = printLabels.length;
       const printMessage =
         printCount > 1
@@ -447,13 +416,6 @@ export default function StoreOrderHistoryPage({
     }, 500);
   };
 
-  // 印刷ボタンに印刷回数を表示
-  const getPrintButtonText = (orderId: string) => {
-    const printCount = printCounts[orderId] || 0;
-    return printCount > 0 ? `印刷 (${printCount})` : "印刷";
-  };
-
-  // 印刷ボタンのツールチップテキストを生成
   const getPrintButtonTooltip = (orderId: string, orderStatus: string) => {
     const printCount = printCounts[orderId] || 0;
 
@@ -495,7 +457,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 注文を取得する関数を修正
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -505,7 +466,6 @@ export default function StoreOrderHistoryPage({
       console.log("日付フィルター:", dateFilter);
       console.log("ステータスフィルター:", statusFilter);
 
-      // 基本的なクエリを構築
       let query = supabase
         .from("orders")
         .select(
@@ -531,7 +491,6 @@ export default function StoreOrderHistoryPage({
 
       console.log("基本クエリ構築完了");
 
-      // まず日付フィルターなしでデータを取得してみる
       console.log("=== 日付フィルターなしでデータ取得テスト ===");
       const { data: allData, error: allError } = await supabase
         .from("orders")
@@ -548,7 +507,6 @@ export default function StoreOrderHistoryPage({
         );
       }
 
-      // 日付範囲の設定
       let dateStart, dateEnd;
 
       switch (dateFilter) {
@@ -574,7 +532,6 @@ export default function StoreOrderHistoryPage({
               customStartDate,
               customEndDate,
             });
-            // デフォルトで今日のデータを取得
             dateStart = startOfDay(new Date());
             dateEnd = endOfDay(new Date());
           } else {
@@ -609,7 +566,6 @@ export default function StoreOrderHistoryPage({
         現在時刻: new Date().toISOString(),
       });
 
-      // 日付フィルターを適用
       if (
         dateStart &&
         dateEnd &&
@@ -621,7 +577,6 @@ export default function StoreOrderHistoryPage({
           .lte("created_at", dateEnd.toISOString());
       }
 
-      // ステータスフィルターを適用
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
         console.log("ステータスフィルター適用:", statusFilter);
@@ -658,7 +613,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 注文の詳細を表示/非表示を切り替える関数
   const toggleOrderDetails = (orderId: string) => {
     if (expandedOrder === orderId) {
       setExpandedOrder(null);
@@ -667,7 +621,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 注文ステータスを更新する関数
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const { error } = await supabase
@@ -680,7 +633,6 @@ export default function StoreOrderHistoryPage({
 
       if (error) throw error;
 
-      // ローカルの状態を更新
       setOrders((prev) =>
         prev.map((order) =>
           order.id === orderId
@@ -704,11 +656,8 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 「調理完了」ボタンが押されたときの専用処理
   const handleMarkAsReady = async (orderId: string) => {
     try {
-      // --- ここからが前回の成功パターンです ---
-      // 1. 現在のセッションからアクセストークンを取得
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -717,7 +666,6 @@ export default function StoreOrderHistoryPage({
         return;
       }
 
-      // 2. 新しいAPIを、認証ヘッダーを付けて呼び出す
       const response = await axios.post(
         "/api/orders/mark-as-ready",
         { orderId },
@@ -727,7 +675,6 @@ export default function StoreOrderHistoryPage({
           },
         }
       );
-      // --- ここまで ---
 
       if (response.data.success) {
         setOrders((prev) =>
@@ -753,7 +700,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // ステータスの日本語表示
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "pending":
@@ -769,7 +715,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // ステータスに応じた色を返す関数
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -785,7 +730,6 @@ export default function StoreOrderHistoryPage({
     }
   };
 
-  // 検索フィルターを適用する関数
   const applySearchFilter = (ordersList: Order[], term: string) => {
     if (!term.trim()) {
       setOrders(ordersList);
@@ -803,7 +747,6 @@ export default function StoreOrderHistoryPage({
     setOrders(filtered);
   };
 
-  // フィルターリセット
   const resetFilters = () => {
     setStatusFilter("all");
     setDateFilter("today");
@@ -813,35 +756,29 @@ export default function StoreOrderHistoryPage({
     fetchOrders();
   };
 
-  // 更新ボタンのハンドラー
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchOrders();
   };
 
-  // 現在のページの注文を取得
   const getCurrentOrders = () => {
     const indexOfLastOrder = currentPage * ordersPerPage;
     const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
     return orders.slice(indexOfFirstOrder, indexOfLastOrder);
   };
 
-  // ページ数を計算
   const totalPages = Math.ceil(orders.length / ordersPerPage);
 
-  // 初回マウント時に店舗情報を取得
   useEffect(() => {
     fetchStore();
   }, [params.storeId]);
 
-  // 店舗情報取得後に注文データを取得
   useEffect(() => {
     if (store) {
       fetchOrders();
     }
   }, [store, dateFilter, statusFilter]);
 
-  // 検索語が変更されたときにフィルターを適用
   useEffect(() => {
     applySearchFilter(orders, searchTerm);
   }, [searchTerm, orders]);

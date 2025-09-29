@@ -1,4 +1,3 @@
-// src/app/admin/users/page.js
 "use client";
 
 import { useEffect, useState } from "react";
@@ -31,7 +30,7 @@ interface UserProfile {
   role: "admin" | "store_staff" | "user";
   phone: string | null;
   address: string | null;
-  points: number; // profiles.points
+  points: number;
 }
 
 interface Store {
@@ -45,7 +44,6 @@ interface StoreStaff {
   id: string;
   user_id: string;
   store_id: number;
-  //store_name?: string;
 }
 
 interface UserStats {
@@ -56,7 +54,6 @@ interface UserStats {
 }
 
 export default function AdminUsersPage() {
-  const router = useRouter();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeStaff, setStoreStaff] = useState<StoreStaff[]>([]);
@@ -73,16 +70,11 @@ export default function AdminUsersPage() {
     is_admin: boolean;
     points: number;
   }>({ role: "user", store_id: null, is_admin: false, points: 0 });
-  // 数値入力の空文字制御用（表示用文字列 state）
   const [pointsInput, setPointsInput] = useState<string>("");
-
   const usersPerPage = 10;
-
-  // ユーザー一覧を取得（profilesテーブルからメールアドレスも取得）
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      // profilesテーブルからメールアドレスを含むユーザー情報を取得
       const { data, error } = await supabase
         .from("profiles")
         .select(
@@ -96,7 +88,6 @@ export default function AdminUsersPage() {
         return;
       }
 
-      // 型安全性を確保するためのデータ変換
       const typedUsers: UserProfile[] = (data || []).map((user: any) => ({
         id: String(user.id),
         name: user.name ? String(user.name) : null,
@@ -124,35 +115,30 @@ export default function AdminUsersPage() {
     }
   };
 
-  // 店舗一覧を取得
-  // 店舗一覧を取得
   const fetchStores = async () => {
     try {
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, address, phone") // nameカラムを取得
-        .order("name"); // nameカラムでソート
+        .select("id, name, address, phone")
+        .order("name");
 
       if (error) {
         console.error("店舗一覧取得エラー:", error);
         return;
       }
 
-      // 型安全性を確保するためのデータ変換
       const typedStores: Store[] = (data || []).map((store: any) => ({
         id: Number(store.id),
-        name: String(store.name || ""), // nameカラムを直接使用
+        name: String(store.name || ""),
         address: String(store.address || ""),
         phone: String(store.phone || ""),
       }));
 
       setStores(typedStores);
-      console.log("店舗一覧取得成功:", typedStores); // デバッグ用
     } catch (error) {
       console.error("Error fetching stores:", error);
     }
   };
-  // 店舗スタッフの割り当て情報を取得
   const fetchStoreStaff = async () => {
     try {
       const { data, error } = await supabase
@@ -164,7 +150,6 @@ export default function AdminUsersPage() {
         return;
       }
 
-      // 型安全性を確保するためのデータ変換
       const typedStoreStaff: StoreStaff[] = (data || []).map((staff: any) => ({
         id: String(staff.id),
         user_id: String(staff.user_id),
@@ -177,21 +162,18 @@ export default function AdminUsersPage() {
       console.error("Error fetching store staff:", error);
     }
   };
-  // 初回データ取得
+
   useEffect(() => {
     Promise.all([fetchUsers(), fetchStores(), fetchStoreStaff()]);
   }, []);
 
-  // フィルタリング処理
   useEffect(() => {
     let filtered = users;
 
-    // 役割フィルター
     if (roleFilter !== "all") {
       filtered = filtered.filter((user) => user.role === roleFilter);
     }
 
-    // 検索フィルター
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
       filtered = filtered.filter((user) => {
@@ -211,7 +193,6 @@ export default function AdminUsersPage() {
     setFilteredUsers(filtered);
     setCurrentPage(1);
   }, [users, roleFilter, searchTerm]);
-  // 統計情報を計算
   const calculateStats = (): UserStats => {
     return {
       total: users.length,
@@ -221,7 +202,6 @@ export default function AdminUsersPage() {
     };
   };
 
-  // 役割を日本語で表示
   const getRoleText = (role: string) => {
     const roles: Record<string, string> = {
       admin: "管理者",
@@ -231,7 +211,6 @@ export default function AdminUsersPage() {
     return roles[role] || role;
   };
 
-  // 日付フォーマット
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("ja-JP", {
       year: "numeric",
@@ -242,7 +221,6 @@ export default function AdminUsersPage() {
     });
   };
 
-  // 編集開始
   const handleEdit = (user: UserProfile) => {
     setEditingUser(user.id);
     setEditForm({
@@ -254,7 +232,6 @@ export default function AdminUsersPage() {
     setPointsInput(typeof user.points === "number" ? String(user.points) : "0");
   };
 
-  // 編集保存
   const handleSave = async (userId: string) => {
     try {
       console.log("保存開始:", {
@@ -264,13 +241,11 @@ export default function AdminUsersPage() {
         storeStaff: storeStaff.length,
       });
 
-      // 店舗スタッフの場合の店舗選択バリデーション
       if (editForm.role === "store_staff" && !editForm.store_id) {
         toast.error("店舗スタッフには店舗の割り当てが必要です");
         return;
       }
 
-      // 入力中文字列を数値化（空なら0）
       let numericPoints = 0;
       if (pointsInput.trim() !== "") {
         const parsed = Number(pointsInput);
@@ -295,9 +270,7 @@ export default function AdminUsersPage() {
         throw profileError;
       }
 
-      // 店舗スタッフの場合の店舗割り当て処理
       if (editForm.role === "store_staff" && editForm.store_id) {
-        // 既存の割り当てを削除
         const { error: deleteError } = await supabase
           .from("store_staff")
           .delete()
@@ -305,10 +278,8 @@ export default function AdminUsersPage() {
 
         if (deleteError) {
           console.error("既存割り当て削除エラー:", deleteError);
-          // 削除エラーは無視（元々存在しない場合）
         }
 
-        // 新しい割り当てを追加
         const { error: staffError } = await supabase
           .from("store_staff")
           .insert({ user_id: userId, store_id: editForm.store_id });
@@ -323,20 +294,16 @@ export default function AdminUsersPage() {
           store_id: editForm.store_id,
         });
       } else {
-        // 店舗スタッフでない場合は割り当てを削除
         await supabase.from("store_staff").delete().eq("user_id", userId);
       }
 
       const selectedStore = stores.find((s) => s.id === editForm.store_id);
       const storeMessage = selectedStore ? ` (${selectedStore.name})` : "";
-
       toast.success(
         `ユーザー情報を更新しました${storeMessage}（ポイント: ${numericPoints}pt）`
       );
       setEditingUser(null);
       setPointsInput("");
-
-      // データを再取得
       await Promise.all([fetchUsers(), fetchStoreStaff()]);
       console.log("データ再取得完了");
     } catch (error) {
@@ -345,40 +312,32 @@ export default function AdminUsersPage() {
     }
   };
 
-  // 編集キャンセル
   const handleCancel = () => {
     setEditingUser(null);
     setPointsInput("");
   };
 
-  // 更新ボタンのハンドラー
   const handleRefresh = () => {
     setIsRefreshing(true);
     Promise.all([fetchUsers(), fetchStores(), fetchStoreStaff()]);
   };
 
-  // フィルターリセット
   const resetFilters = () => {
     setRoleFilter("all");
     setSearchTerm("");
   };
 
-  // 現在のページのユーザーを取得
   const getCurrentUsers = () => {
     const indexOfLastUser = currentPage * usersPerPage;
     const indexOfFirstUser = indexOfLastUser - usersPerPage;
     return filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   };
 
-  // ページ数を計算
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
-  // 指定ユーザーの所属店舗を取得
   const getUserStore = (userId: string) => {
     const staffInfo = storeStaff.find((s) => s.user_id === userId);
     if (!staffInfo) return null;
-
-    // storesテーブルから店舗情報を取得
     const store = stores.find((s) => s.id === staffInfo.store_id);
     if (!store) return null;
 
@@ -406,7 +365,6 @@ export default function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
-
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
         <div className="mb-6">
@@ -865,8 +823,6 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        {/* 認証済みメール管理 削除済み */}
-        {/* フッター情報 */}
         <div className="mt-8 text-center text-sm text-gray-500">
           最終更新: {new Date().toLocaleString("ja-JP")}
         </div>

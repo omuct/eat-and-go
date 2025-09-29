@@ -19,7 +19,6 @@ export default function OrdersMapListPage() {
   useEffect(() => {
     const fetchPlaces = async () => {
       setLoading(true);
-      // supabaseの"places"テーブルから場所一覧取得
       const { data, error } = await supabase
         .from("places")
         .select("id, name, description")

@@ -29,7 +29,6 @@ export default function NewsDetail({ params }: { params: { id: string } }) {
           router.push("/");
           return;
         }
-
         setAnnouncement(data);
       } catch (error) {
         console.error("Error:", error);
@@ -38,7 +37,6 @@ export default function NewsDetail({ params }: { params: { id: string } }) {
         setLoading(false);
       }
     };
-
     fetchAnnouncement();
   }, [params.id, router]);
 
@@ -122,7 +120,6 @@ export default function NewsDetail({ params }: { params: { id: string } }) {
                 </div>
               </div>
             )}
-
             <div
               className="prose max-w-none sm:prose-lg prose-headings:font-bold prose-a:text-blue-600 hover:prose-a:text-blue-800"
               dangerouslySetInnerHTML={{ __html: announcement.content }}

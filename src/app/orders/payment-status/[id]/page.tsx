@@ -9,7 +9,6 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
 
-// 決済ステータスの型定義
 type PaymentStatus =
   | "PENDING"
   | "COMPLETED"
@@ -17,7 +16,6 @@ type PaymentStatus =
   | "CANCELED"
   | "UNKNOWN";
 
-// 決済データのインターフェース定義
 interface PaymentData {
   merchantPaymentId: string;
   amount: number;
@@ -26,7 +24,6 @@ interface PaymentData {
   status: PaymentStatus;
 }
 
-// ローディング中に表示するコンポーネント
 function LoadingComponent() {
   return (
     <div className="min-h-screen bg-gray-100">
@@ -41,22 +38,18 @@ function LoadingComponent() {
   );
 }
 
-// メインのコンテンツコンポーネント
 function PaymentStatusContent() {
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("PENDING");
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // useRefを使って「処理開始フラグ」を管理
   const hasStartedProcessing = useRef(false);
 
   useEffect(() => {
-    // このuseEffectは初回の一度しか実行されない
     if (hasStartedProcessing.current) {
-      return; // 既に処理が開始されていたら何もしない
+      return;
     }
-    hasStartedProcessing.current = true; // 処理開始のフラグを立てる
+    hasStartedProcessing.current = true;
 
     const processPayment = async () => {
       try {
@@ -67,8 +60,6 @@ function PaymentStatusContent() {
           return;
         }
         const paymentInfo = JSON.parse(savedPaymentData);
-
-        // 最大10回、3秒ごとにステータスを確認するループ
         for (let i = 0; i < 10; i++) {
           const response = await axios.post("/api/checkPaymentStatus", {
             id: paymentInfo.merchantPaymentId,
@@ -81,7 +72,6 @@ function PaymentStatusContent() {
             setPaymentData(response.data?.data);
             toast.success("決済が完了しました！注文を作成します...");
 
-            // 注文作成処理
             const {
               data: { session },
             } = await supabase.auth.getSession();
@@ -108,7 +98,7 @@ function PaymentStatusContent() {
               localStorage.removeItem("paypay_payment_data");
               const orderId = createOrderResponse.data.orderId;
               router.push(`/orders/complete?orderId=${orderId}`);
-              return; // 処理成功、ループを抜ける
+              return;
             } else {
               throw new Error(
                 createOrderResponse.data?.details || "注文作成に失敗しました"
@@ -117,15 +107,11 @@ function PaymentStatusContent() {
           } else if (status === "FAILED" || status === "CANCELED") {
             setPaymentStatus(status);
             setLoading(false);
-            return; // 処理失敗、ループを抜ける
+            return;
           }
-
-          // 3秒待機
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
-
-        // ループがタイムアウトした場合
-        setPaymentStatus("FAILED"); // タイムアウトを失敗として扱う
+        setPaymentStatus("FAILED");
         setLoading(false);
         toast.error("決済の確認がタイムアウトしました。");
       } catch (error) {
@@ -138,13 +124,11 @@ function PaymentStatusContent() {
         toast.error(errorMessage);
       }
     };
-
     processPayment();
-  }, []); // 依存配列を空にすることで、初回の一度だけ実行される
+  }, []);
 
-  // 再確認ボタンのハンドラ
   const handleRetryCheck = () => {
-    window.location.reload(); // ページをリロードして再試行
+    window.location.reload();
   };
 
   const getStatusIcon = () => {
@@ -266,7 +250,6 @@ function PaymentStatusContent() {
   );
 }
 
-// エクスポートするメインコンポーネント
 export default function PaymentStatusPage() {
   return (
     <Suspense fallback={<LoadingComponent />}>

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import PAYPAY from "@paypayopa/paypayopa-sdk-node";
 import { randomUUID } from "crypto";
 
-// PayPay SDK設定
 function configurePayPay() {
   const config = {
     clientId: process.env.PAYPAY_CLIENT_ID || process.env.PAYPAY_API_KEY || "",
@@ -22,18 +21,15 @@ function configurePayPay() {
     clientSecretLength: config.clientSecret?.length || 0,
     env: process.env.NODE_ENV,
   });
-
   PAYPAY.Configure(config);
   return config;
 }
 
 export async function POST(request: Request) {
   try {
-    // リクエストデータの取得
     const body = await request.json();
     console.log("PayPay APIリクエストボディ:", body);
 
-    // リクエスト形式の確認と amount の抽出
     let amount;
     let merchantPaymentId;
     let orderDescription;
@@ -42,7 +38,6 @@ export async function POST(request: Request) {
     let userAgent;
 
     if (body.amount && typeof body.amount === "object" && body.amount.amount) {
-      // 新しい形式: { amount: { amount: 100, currency: "JPY" } }
       amount = body.amount.amount;
       merchantPaymentId = body.merchantPaymentId;
       orderDescription = body.orderDescription;
@@ -54,7 +49,6 @@ export async function POST(request: Request) {
         extractedAmount: amount,
       });
     } else if (body.amount && typeof body.amount === "number") {
-      // 従来の形式: { amount: 100 }
       amount = body.amount;
       merchantPaymentId = body.orderId;
       orderDescription = body.description;
@@ -71,7 +65,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 金額の型チェックと変換
     const numericAmount = Number(amount);
     console.log("金額変換チェック:", {
       originalAmount: amount,
@@ -97,10 +90,8 @@ export async function POST(request: Request) {
 
     console.log("抽出された金額:", { amount, numericAmount });
 
-    // PayPay SDK設定
     const config = configurePayPay();
 
-    // 必要な環境変数の確認
     if (!config.clientId || !config.clientSecret || !config.merchantId) {
       console.error("PayPay環境変数が不足:", config);
       return NextResponse.json(
@@ -115,13 +106,10 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-
-    // 決済ID生成（リクエストから取得されていない場合）
     if (!merchantPaymentId) {
       merchantPaymentId = randomUUID();
     }
 
-    // リダイレクトURL構築（リクエストから取得されていない場合）
     if (!redirectUrl) {
       const baseUrl =
         process.env.NEXT_PUBLIC_BASE_URL ||
@@ -131,11 +119,10 @@ export async function POST(request: Request) {
       redirectUrl = `${baseUrl}/orders/payment-status/${merchantPaymentId}`;
     }
 
-    // PayPay決済ペイロード
     const payload: any = {
       merchantPaymentId,
       amount: {
-        amount: Math.floor(numericAmount), // 確実に整数にする
+        amount: Math.floor(numericAmount),
         currency: "JPY",
       },
       codeType: "ORDER_QR",
@@ -145,7 +132,6 @@ export async function POST(request: Request) {
       redirectType: "WEB_LINK",
     };
 
-    // 有効期限を設定（リクエストに含まれている場合）
     if (expiryDate) {
       payload.expiryDate = expiryDate;
     }
@@ -156,11 +142,8 @@ export async function POST(request: Request) {
       redirectUrl,
     });
 
-    // PayPay API呼び出し
     const response = await PAYPAY.QRCodeCreate(payload);
     console.log("PayPay APIレスポンス:", response);
-
-    // レスポンス処理
     const responseData = response as any;
 
     if (
@@ -177,7 +160,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 成功レスポンス
     const paymentData = responseData.BODY?.data;
     console.log("PayPay決済作成成功:", {
       merchantPaymentId,

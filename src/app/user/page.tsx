@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Header from "@/app/_components/Header";
-import { History, UserCog, Coins } from "lucide-react"; // アイコンを追加
+import { History, UserCog, Coins } from "lucide-react";
 
 export default function UserPage() {
   const router = useRouter();
@@ -20,10 +20,8 @@ export default function UserPage() {
         router.push("/login");
         return;
       }
-
       setUserId(session.user.id);
     };
-
     checkUser();
   }, [router]);
 

@@ -1,4 +1,3 @@
-// src/app/admin/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -8,9 +7,7 @@ import {
   ShoppingBag,
   Calendar,
   Bell,
-  ClipboardList,
   Store,
-  Mail,
   MapPin,
   Trash2,
 } from "lucide-react";

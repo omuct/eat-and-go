@@ -4,17 +4,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Clock,
-  Info,
-  CheckCircle,
-  XCircle,
-  Utensils,
-  Eye,
-  EyeOff,
-  UserPlus,
-} from "lucide-react";
-import { format, parse } from "date-fns";
+import { Utensils, Eye, EyeOff, UserPlus } from "lucide-react";
+import { format } from "date-fns";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -36,17 +27,15 @@ export default function Login() {
 
         const isWeekday = currentDay >= 1 && currentDay <= 5;
 
-        // クエリ方法を変更
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("business_closures")
           .select("*")
           .eq("date", format(now, "yyyy-MM-dd"))
-          .maybeSingle(); // .single()の代わりに.maybeSingle()を使用
+          .maybeSingle();
 
         let operatingStatus = false;
 
         if (!data) {
-          // データがない場合のデフォルト処理
           const startTime = new Date();
           startTime.setHours(9, 0, 0, 0);
 
@@ -61,7 +50,6 @@ export default function Login() {
             currentTimeObj >= startTime &&
             currentTimeObj < endTime;
         } else {
-          // データがある場合の処理
           if (data.is_open === false) {
             operatingStatus = false;
           } else if (data.open_time && data.close_time) {
@@ -84,7 +72,6 @@ export default function Login() {
             operatingStatus =
               currentTimeObj >= startTime && currentTimeObj < endTime;
           } else {
-            // デフォルトの営業時間
             const startTime = new Date();
             startTime.setHours(9, 0, 0, 0);
 
@@ -106,14 +93,8 @@ export default function Login() {
         console.error("営業状況の確認中にエラーが発生しました:", error);
       }
     };
-
-    // 初回即時実行
     checkOperatingStatus();
-
-    // 1分ごとに更新
     const intervalId = setInterval(checkOperatingStatus, 60000);
-
-    // クリーンアップ
     return () => clearInterval(intervalId);
   }, []);
 
@@ -141,18 +122,6 @@ export default function Login() {
 
     if (error) {
       alert("Googleログインに失敗しました: " + error.message);
-      return;
-    }
-  };
-
-  const handleXLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "twitter", // Supabaseでは依然として"twitter"を使用
-      options: { redirectTo: `${window.location.origin}/orders` },
-    });
-
-    if (error) {
-      alert("Xログインに失敗しました: " + error.message);
       return;
     }
   };

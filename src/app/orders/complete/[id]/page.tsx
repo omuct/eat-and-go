@@ -15,12 +15,10 @@ export default function OrderCompletePage() {
 
   useEffect(() => {
     if (!orderId) {
-      // useEffectの外でリダイレクトを実行
       setTimeout(() => router.push("/orders"), 0);
       return;
     }
 
-    // 注文番号をAPIから取得
     const fetchOrderNumber = async () => {
       const { data, error } = await supabase
         .from("orders")
@@ -35,12 +33,10 @@ export default function OrderCompletePage() {
     };
     fetchOrderNumber();
 
-    // 10秒カウントダウン後にリダイレクト
     const timer = setInterval(() => {
       setCounter((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // 非同期でリダイレクト
           setTimeout(() => router.push("/orders"), 0);
           return 0;
         }

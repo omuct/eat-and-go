@@ -1,4 +1,3 @@
-// src/app/admin/announcement/page.tsx
 "use client";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
@@ -34,10 +33,8 @@ export default function AnnouncementList() {
         console.error("お知らせの取得エラー:", error);
         return;
       }
-
       setAnnouncements(data || []);
     };
-
     fetchAnnouncements();
   }, [supabase]);
 
@@ -46,7 +43,6 @@ export default function AnnouncementList() {
       return;
     }
 
-    // 画像の削除
     const { data: announcement } = await supabase
       .from("announcements")
       .select("image_url")
@@ -59,7 +55,6 @@ export default function AnnouncementList() {
         .remove([announcement.image_url]);
     }
 
-    // お知らせの削除
     const { error } = await supabase
       .from("announcements")
       .delete()
@@ -69,10 +64,9 @@ export default function AnnouncementList() {
       console.error("削除エラー:", error);
       return;
     }
-
-    // 状態を更新して再レンダリング
     setAnnouncements(announcements.filter((a) => a.id !== id));
   };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">

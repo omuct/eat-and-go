@@ -64,7 +64,6 @@ export const generateOrderNumber = async (storeId: number): Promise<string> => {
     attempts++;
   }
 
-  // 万が一すべて使用済みの場合、完了済み注文の番号を再利用
   console.warn(
     `店舗${storeId}の注文番号が不足しています。完了済み注文の番号を再利用します。`
   );
@@ -82,12 +81,10 @@ export const generateOrderNumber = async (storeId: number): Promise<string> => {
     return completedOrders[0].order_number;
   }
 
-  // 最終手段：タイムスタンプベースの番号
   const timestamp = Date.now().toString().slice(-3);
   return `${storeNumber}${timestamp}`;
 };
 
-// 注文番号を注文に保存
 export const saveOrderNumber = async (
   orderId: string,
   orderNumber: string
@@ -110,7 +107,6 @@ export const saveOrderNumber = async (
   }
 };
 
-// 注文IDから注文番号を取得
 export const getOrderNumberById = async (
   orderId: string
 ): Promise<string | null> => {
@@ -126,7 +122,6 @@ export const getOrderNumberById = async (
       return null;
     }
 
-    // 注文番号が未設定の場合は新規生成
     if (!data.order_number && data.store_id) {
       const newOrderNumber = await generateOrderNumber(data.store_id);
       const saved = await saveOrderNumber(orderId, newOrderNumber);

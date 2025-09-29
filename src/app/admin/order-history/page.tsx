@@ -38,7 +38,6 @@ export default function OrderHistoryStorePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userStoreIds, setUserStoreIds] = useState<number[]>([]);
 
-  // ユーザープロフィールを取得
   const fetchUserProfile = async () => {
     try {
       const {
@@ -75,7 +74,6 @@ export default function OrderHistoryStorePage() {
     }
   };
 
-  // 店舗スタッフの所属店舗IDを取得
   const fetchUserStores = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -119,7 +117,6 @@ export default function OrderHistoryStorePage() {
         image_url: store.image_url ? String(store.image_url) : undefined,
       }));
 
-      // 店舗スタッフの場合は所属店舗のみフィルタリング
       if (userProfile?.role === "store_staff" && allowedStoreIds.length > 0) {
         storesData = storesData.filter((store) =>
           allowedStoreIds.includes(store.id)
@@ -148,9 +145,7 @@ export default function OrderHistoryStorePage() {
 
       const stats: StoreOrderStats[] = [];
 
-      // 各店舗の統計を取得
       for (const store of storesData) {
-        // 店舗に関連する商品のIDを取得
         const { data: foods, error: foodsError } = await supabase
           .from("foods")
           .select("id")
@@ -177,13 +172,11 @@ export default function OrderHistoryStorePage() {
           continue;
         }
 
-        // 総注文数
         const { count: totalCount, error: totalError } = await supabase
           .from("order_details")
           .select("*", { count: "exact", head: true })
           .in("food_id", foodIds);
 
-        // 今日の注文数
         const { count: todayCount, error: todayError } = await supabase
           .from("order_details")
           .select("orders!inner(*)", { count: "exact", head: true })
@@ -191,7 +184,6 @@ export default function OrderHistoryStorePage() {
           .gte("orders.created_at", today.toISOString())
           .lt("orders.created_at", tomorrow.toISOString());
 
-        // 保留中の注文数
         const { count: pendingCount, error: pendingError } = await supabase
           .from("order_details")
           .select("orders!inner(*)", { count: "exact", head: true })
@@ -220,7 +212,6 @@ export default function OrderHistoryStorePage() {
 
   useEffect(() => {
     const initializeData = async () => {
-      // 1. ユーザープロフィールを取得
       const profile = await fetchUserProfile();
 
       if (!profile) {
@@ -228,7 +219,6 @@ export default function OrderHistoryStorePage() {
         return;
       }
 
-      // 2. 店舗スタッフの場合は所属店舗を取得
       let allowedStoreIds: number[] = [];
       if (profile.role === "store_staff") {
         allowedStoreIds = await fetchUserStores(profile.id);
@@ -242,7 +232,6 @@ export default function OrderHistoryStorePage() {
         }
       }
 
-      // 3. 店舗情報を取得（フィルタリング適用）
       await fetchStores(profile, allowedStoreIds);
     };
 
@@ -261,7 +250,6 @@ export default function OrderHistoryStorePage() {
     );
   };
 
-  // 権限チェック
   if (!userProfile) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -273,7 +261,6 @@ export default function OrderHistoryStorePage() {
     );
   }
 
-  // 一般ユーザーのアクセス制限
   if (userProfile.role === "user") {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">

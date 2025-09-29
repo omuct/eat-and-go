@@ -5,21 +5,12 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Header from "@/app/_components/Header";
 import ProductCard from "@/app/_components/ProductCard";
-import { Food, FoodCategory } from "@/app/_types/food";
+import { Food } from "@/app/_types/food";
 import { Announcement } from "@/app/_types/announcement";
 import Link from "next/link";
-import {
-  ChevronRight,
-  Bell,
-  Calendar,
-  ShoppingCart,
-  Plus,
-  Minus,
-  X,
-} from "lucide-react";
+import { ChevronRight, Bell, Calendar, Plus, Minus, X } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { format } from "date-fns";
 
 export default function OrdersPage() {
   const [selectedStore, setSelectedStore] = useState<string>(""); // 選択された店舗
@@ -29,11 +20,9 @@ export default function OrdersPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+  const [showAllAnnouncements] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] =
     useState<Announcement | null>(null);
-
-  // カート関連の状態
   const [cartCount, setCartCount] = useState(0);
   const [cartAnimating, setCartAnimating] = useState(false);
 
@@ -45,16 +34,6 @@ export default function OrdersPage() {
   const [isTakeout, setIsTakeout] = useState(false);
   const [selectedFoodCartQty, setSelectedFoodCartQty] = useState(0);
 
-  const isTakeoutAvailable = () => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-
-    // 11:30までの場合のみtrue
-    return hours < 11 || (hours === 11 && minutes <= 30);
-  };
-
-  // 現在のカート内のアイテム数をチェックする関数
   const fetchCartItemCount = async () => {
     try {
       const {
@@ -79,7 +58,6 @@ export default function OrdersPage() {
     }
   };
 
-  // ページがフォーカスされた時にカート数を再読み込み
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -90,10 +68,8 @@ export default function OrdersPage() {
     const handleFocus = () => {
       fetchCartItemCount();
     };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", handleFocus);
-
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
@@ -103,7 +79,6 @@ export default function OrdersPage() {
   useEffect(() => {
     const checkUserAndFetchData = async () => {
       try {
-        // セッションチェック
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -112,7 +87,6 @@ export default function OrdersPage() {
           return;
         }
 
-        // 商品データとお知らせの取得を並行して実行
         const [foodsResult, announcementsResult] = await Promise.all([
           supabase
             .from("foods")
@@ -134,15 +108,10 @@ export default function OrdersPage() {
 
         if (foodsResult.error) throw foodsResult.error;
         if (announcementsResult.error) throw announcementsResult.error;
-
         setFoods(foodsResult.data || []);
         setAnnouncements(announcementsResult.data || []);
-
-        // 利用可能な店舗一覧を設定
         const stores = getAvailableStores(foodsResult.data || []);
         setAvailableStores(stores);
-
-        // カート内のアイテム数を取得
         await fetchCartItemCount();
       } catch (error) {
         console.error("Error:", error);
@@ -151,11 +120,9 @@ export default function OrdersPage() {
         setLoading(false);
       }
     };
-
     checkUserAndFetchData();
   }, [router]);
 
-  // 商品をカートに追加する関数
   const handleAddToCart = async () => {
     if (!selectedFood) return;
 
@@ -168,15 +135,12 @@ export default function OrdersPage() {
         return;
       }
 
-      // カート内の商品数をチェック
       const { data: cartItems, error: cartError } = await supabase
         .from("cart")
         .select("*")
         .eq("user_id", session.user.id);
-
       if (cartError) throw cartError;
 
-      // 同じ商品の数をチェック
       const sameItems =
         cartItems?.filter((item) => item.food_id === selectedFood.id) || [];
       const currentQuantity = sameItems.reduce(
@@ -190,10 +154,8 @@ export default function OrdersPage() {
         return;
       }
 
-      // 価格計算（サイズ差分は無視して常に基本価格）
       let totalPrice = selectedFood.price * quantity;
 
-      // 同じ商品（food_id）で既存行を検索（サイズ/テイクアウトは無視）
       const { data: existingRows, error: existingErr } = await supabase
         .from("cart")
         .select("id, quantity")
@@ -205,7 +167,6 @@ export default function OrdersPage() {
 
       if (existingRows && existingRows.length > 0) {
         const existingVariant = existingRows[0];
-        // 既存行に数量を加算
         const unitPrice = selectedFood.price;
         const newQuantity = existingVariant.quantity + quantity;
         const newTotalPrice = unitPrice * newQuantity;
@@ -217,14 +178,11 @@ export default function OrdersPage() {
 
         if (updateError) throw updateError;
       } else {
-        // 最大5行（異なる商品/バリアント）までの制限をチェック（新規行追加時のみ）
         if (cartItems && cartItems.length >= 5) {
           toast.error("カートには最大5個までしか商品を追加できません");
           setShowOrderModal(false);
           return;
         }
-
-        // 新規行として追加
         const { error } = await supabase.from("cart").insert({
           user_id: session.user.id,
           food_id: selectedFood.id,
@@ -240,11 +198,9 @@ export default function OrdersPage() {
         if (error) throw error;
       }
 
-      // カート内のアイテム数を更新して通知
       await fetchCartItemCount();
       setCartAnimating(true);
       setTimeout(() => setCartAnimating(false), 1000);
-
       toast.success(
         <div className="flex flex-col gap-2">
           <span>商品をカートに追加しました</span>
@@ -274,7 +230,6 @@ export default function OrdersPage() {
     }
   };
 
-  // 商品カードをクリックしたときの処理
   const handleProductClick = (food: Food) => {
     setSelectedFood(food);
     setShowOrderModal(true);
@@ -306,7 +261,6 @@ export default function OrdersPage() {
     })();
   };
 
-  // 利用可能な店舗一覧を取得
   const getAvailableStores = (foodsData: Food[]) => {
     const stores = Array.from(
       new Set(
@@ -316,7 +270,6 @@ export default function OrdersPage() {
     return stores.sort();
   };
 
-  // 店舗でフィルタリングされた商品を取得
   const getFilteredFoods = () => {
     if (!selectedStore) return foods;
     return foods.filter(
@@ -324,7 +277,6 @@ export default function OrdersPage() {
     );
   };
 
-  // 店舗別にグループ化された商品を取得
   const getGroupedFoods = () => {
     const filteredFoods = getFilteredFoods();
     const grouped = filteredFoods.reduce(
@@ -339,13 +291,11 @@ export default function OrdersPage() {
       {} as Record<string, typeof filteredFoods>
     );
 
-    // 店舗名でソート
     const sortedStoreNames = Object.keys(grouped).sort();
     const result: Record<string, typeof filteredFoods> = {};
     sortedStoreNames.forEach((storeName) => {
       result[storeName] = grouped[storeName];
     });
-
     return result;
   };
 
@@ -361,10 +311,6 @@ export default function OrdersPage() {
         return category;
     }
   };
-
-  const displayedAnnouncements = showAllAnnouncements
-    ? announcements
-    : announcements.slice(0, 3);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -487,7 +433,7 @@ export default function OrdersPage() {
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-black-500 mb-1">
-                  　　　　　　　　　カテゴリー
+                  カテゴリー
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">
@@ -647,7 +593,6 @@ export default function OrdersPage() {
               </div>
 
               {/* サイズ選択は無効化（統一仕様により常に普通サイズ） */}
-
               <button
                 onClick={handleAddToCart}
                 className="w-full py-3 bg-blue-600 text-white rounded-md font-semibold"

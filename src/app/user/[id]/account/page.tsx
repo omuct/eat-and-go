@@ -36,13 +36,6 @@ interface Store {
   phone: string;
 }
 
-interface StoreStaff {
-  id: string;
-  user_id: string;
-  store_id: number;
-  store_name?: string;
-}
-
 interface AccountPageProps {
   params: {
     id: string;
@@ -55,8 +48,8 @@ export default function AccountPage({ params }: AccountPageProps) {
   const [provider, setProvider] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [stores, setStores] = useState<Store[]>([]); // 店舗一覧
-  const [userStore, setUserStore] = useState<Store | null>(null); // ユーザーの所属店舗
+  const [stores, setStores] = useState<Store[]>([]);
+  const [userStore, setUserStore] = useState<Store | null>(null);
   const [profile, setProfile] = useState<UserProfile>({
     id: params.id,
     name: null,
@@ -74,22 +67,15 @@ export default function AccountPage({ params }: AccountPageProps) {
   });
 
   const [errorMessage, setErrorMessage] = useState("");
-
-  // パスワード変更関連
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
-
-  // アカウント削除関連
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
-
   const isSocialAccount = provider === "google" || provider === "twitter";
-
-  // 店舗一覧を取得
   const fetchStores = async () => {
     try {
       const { data, error } = await supabase
@@ -115,10 +101,8 @@ export default function AccountPage({ params }: AccountPageProps) {
     }
   };
 
-  // ユーザーの所属店舗を取得（代替方法）
   const fetchUserStore = async (userId: string) => {
     try {
-      // 1. store_staffテーブルからstore_idを取得
       const { data: staffData, error: staffError } = await supabase
         .from("store_staff")
         .select("store_id")
@@ -138,7 +122,6 @@ export default function AccountPage({ params }: AccountPageProps) {
         return;
       }
 
-      // 2. storesテーブルから店舗情報を取得
       const { data: storeData, error: storeError } = await supabase
         .from("stores")
         .select("id, name, address, phone")
@@ -159,7 +142,6 @@ export default function AccountPage({ params }: AccountPageProps) {
           phone: String(storeData.phone),
         };
         setUserStore(store);
-        console.log("店舗情報取得成功:", store); // デバッグ用
       }
     } catch (error) {
       console.error("Error fetching user store:", error);
@@ -184,10 +166,8 @@ export default function AccountPage({ params }: AccountPageProps) {
         router.push("/");
         return;
       }
-
       setEmail(session.user.email || "");
 
-      // プロバイダー情報を取得
       const appMetadata = session.user.app_metadata;
       setProvider(appMetadata.provider ?? null);
 
@@ -199,7 +179,6 @@ export default function AccountPage({ params }: AccountPageProps) {
 
       if (profileError) {
         if (profileError.code === "PGRST116") {
-          // プロフィールが存在しない場合は新規作成
           const newProfile = {
             id: session.user.id,
             name: null,
@@ -229,10 +208,8 @@ export default function AccountPage({ params }: AccountPageProps) {
               ? String(insertedProfile.address)
               : null,
           };
-
           setProfile(typedProfile);
           setEditedProfile(typedProfile);
-          console.log("プロフィール取得成功:", typedProfile); // デバッグ用
         }
         throw new Error("プロフィールの取得に失敗しました");
       }
@@ -264,7 +241,6 @@ export default function AccountPage({ params }: AccountPageProps) {
     fetchStores();
   }, [params.id, router]);
 
-  // 別のuseEffectで店舗情報を取得
   useEffect(() => {
     if (profile.role === "store_staff") {
       fetchUserStore(params.id);
@@ -323,7 +299,6 @@ export default function AccountPage({ params }: AccountPageProps) {
     setErrorMessage("");
   };
 
-  // パスワード変更
   const handlePasswordChange = async () => {
     try {
       if (!passwordForm.newPassword.trim()) {
@@ -360,11 +335,9 @@ export default function AccountPage({ params }: AccountPageProps) {
     }
   };
 
-  // アカウント削除
   const handleAccountDelete = async () => {
     try {
       if (isSocialAccount) {
-        // ソーシャルアカウントの場合はプロフィールのみ削除
         const { error: profileError } = await supabase
           .from("profiles")
           .delete()
@@ -376,13 +349,11 @@ export default function AccountPage({ params }: AccountPageProps) {
         toast.success("アカウントを削除しました");
         router.push("/login");
       } else {
-        // 通常のアカウントの場合
         if (!deleteConfirmPassword.trim()) {
           toast.error("パスワードを入力してください");
           return;
         }
 
-        // パスワードの確認のため再認証
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email,
           password: deleteConfirmPassword,
@@ -393,7 +364,6 @@ export default function AccountPage({ params }: AccountPageProps) {
           return;
         }
 
-        // プロフィール削除
         const { error: profileError } = await supabase
           .from("profiles")
           .delete()
@@ -401,8 +371,6 @@ export default function AccountPage({ params }: AccountPageProps) {
 
         if (profileError) throw profileError;
 
-        // ユーザーアカウント削除は管理者側で処理する必要がある
-        // 現在はプロフィールのみ削除してサインアウト
         await supabase.auth.signOut();
         toast.success("アカウントを削除しました");
         router.push("/login");
@@ -413,7 +381,6 @@ export default function AccountPage({ params }: AccountPageProps) {
     }
   };
 
-  // 役割の日本語表示
   const getRoleText = (role: string) => {
     const roles: Record<string, string> = {
       admin: "管理者",

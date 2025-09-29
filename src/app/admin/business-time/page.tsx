@@ -1,4 +1,3 @@
-// src/app/admin/business-time/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -21,7 +20,6 @@ import {
   Trash2,
   X,
   ArrowLeft,
-  Clock,
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -89,7 +87,6 @@ export default function BusinessTimePage() {
     }
   };
 
-  // 休業日の取得
   const fetchClosures = async () => {
     try {
       const startDate = format(startOfMonth(currentDate), "yyyy-MM-dd");
@@ -437,7 +434,6 @@ export default function BusinessTimePage() {
           </div>
         </div>
       )}
-
       <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
     </div>
   );

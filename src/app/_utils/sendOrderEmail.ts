@@ -17,9 +17,6 @@ interface SendOrderConfirmationEmailProps {
   pickupTime?: string;
 }
 
-/**
- * 注文確認メールを送信する
- */
 export async function sendOrderConfirmationEmail({
   to,
   orderNumber,
@@ -34,7 +31,6 @@ export async function sendOrderConfirmationEmail({
   error?: string;
 }> {
   try {
-    // profilesテーブルに存在するメールのみ送信
     const { canSendEmail } = await import("./canSendEmail");
     const isAllowed = await canSendEmail(to);
     if (!isAllowed) {
@@ -47,9 +43,7 @@ export async function sendOrderConfirmationEmail({
     const endpoint = "/api/orders/send-confirmation";
     let fetchUrl;
 
-    // サーバーサイドで実行されているか（windowオブジェクトがないか）で判断
     if (typeof window === "undefined") {
-      // サーバーサイドの場合：Vercelの環境変数から完全なURLを構築
       const baseUrl =
         process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
       fetchUrl = new URL(endpoint, baseUrl).toString();

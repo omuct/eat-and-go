@@ -16,7 +16,6 @@ export default function UserPointsPage() {
   useEffect(() => {
     const fetchPoints = async () => {
       if (!userId) return;
-      // 保有ポイント取得（profiles.points）
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("points")

@@ -55,9 +55,8 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
           return;
         }
 
-        // 実際のカラム名に合わせて修正
         setFormData({
-          name: data.name || data.store_name || "", // 両方試す
+          name: data.name || data.store_name || "",
           address: data.address || "",
           phone: data.phone || "",
           opening_hours: data.opening_hours || "",
@@ -122,7 +121,6 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
         console.log("画像アップロード完了:", imageUrl);
       }
 
-      // 既存のデータを取得
       const { data: existingData, error: fetchError } = await supabase
         .from("stores")
         .select("*")
@@ -135,13 +133,9 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
 
       console.log("既存データの構造:", Object.keys(existingData));
 
-      // 古い店舗名を保存（商品データ更新用）
       const oldStoreName = existingData.name || existingData.store_name || "";
-
-      // 既存データをベースに、フォームデータで上書き
       const updateData: any = {};
 
-      // 確実に存在するフィールドのみ更新
       if ("address" in existingData) updateData.address = formData.address;
       if ("phone" in existingData) updateData.phone = formData.phone;
       if ("opening_hours" in existingData)
@@ -149,8 +143,6 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
       if ("description" in existingData)
         updateData.description = formData.description;
       if ("image_url" in existingData) updateData.image_url = imageUrl;
-
-      // 店舗名のカラム名を動的に判定
       if ("name" in existingData) {
         updateData.name = formData.name;
       } else if ("store_name" in existingData) {
@@ -159,13 +151,11 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
 
       console.log("更新データ:", updateData);
 
-      // 1. 店舗情報を更新
       const { data, error } = await supabase
         .from("stores")
         .update(updateData)
         .eq("id", params.id)
         .select();
-
       console.log("Supabase応答:", { data, error });
 
       if (error) {
@@ -176,7 +166,6 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
         throw new Error("店舗が見つかりませんでした。");
       }
 
-      // 2. 店舗名が変更された場合、関連する商品のstore_nameも更新
       if (oldStoreName !== formData.name && oldStoreName) {
         console.log("店舗名変更を検出:", {
           oldStoreName,
@@ -191,7 +180,6 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
 
         if (foodsError) {
           console.error("商品データ更新エラー:", foodsError);
-          // エラーが発生しても店舗更新は成功しているので、警告として表示
           alert(
             `店舗情報は更新されましたが、一部の商品データの更新に失敗しました: ${foodsError.message}`
           );

@@ -119,7 +119,6 @@ export default function AdminMapEditPage() {
               onClick={async () => {
                 if (confirm("本当に削除しますか？")) {
                   setLoading(true);
-                  // まずこのマップに属するごみ箱を削除
                   const { error: binError } = await supabase
                     .from("trash_bins")
                     .delete()
@@ -129,7 +128,6 @@ export default function AdminMapEditPage() {
                     alert("ごみ箱の削除に失敗しました: " + binError.message);
                     return;
                   }
-                  // その後マップ自体を削除
                   const { error: placeError } = await supabase
                     .from("places")
                     .delete()

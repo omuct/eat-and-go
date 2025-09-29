@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrder } from "@/app/_utils/createOrder";
-import { supabase } from "@/lib/supabaseClient";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
@@ -32,7 +31,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 重複注文防止チェック
     const { data: existingOrder } = await supabaseWithAuth
       .from("orders")
       .select("id")
@@ -49,7 +47,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 共通関数を呼び出して注文を作成
     const { orderId, orderNumber } = await createOrder({
       userId,
       cartItems,

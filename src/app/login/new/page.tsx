@@ -16,10 +16,8 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -29,10 +27,7 @@ export default function Signup() {
       alert("サインアップに失敗しました: " + error.message);
       return;
     }
-
-    // サインアップ後にセッションを明示的にクリア
     await supabase.auth.signOut();
-
     alert(
       "新規登録が完了しました。ご登録いただいたメールアドレス宛に、認証メールをお送りいたしましたのご確認後ログインをお願いします。ログインページに移動します"
     );

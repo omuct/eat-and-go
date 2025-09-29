@@ -8,6 +8,7 @@ interface Place {
   id: string;
   name: string;
 }
+
 interface TrashBin {
   id: string;
   name: string;

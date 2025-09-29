@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 
-// カート内のアイテムを取得
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
@@ -22,7 +21,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-// カートにアイテムを追加
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const {
@@ -54,15 +52,12 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
   return NextResponse.json(data);
 }
 
-// カート内のアイテムを更新
 export async function PUT(request: NextRequest) {
   const body = await request.json();
   const { itemId, quantity, totalPrice } = body;
-
   const { data, error } = await supabase
     .from("cart")
     .update({ quantity, total_price: totalPrice })
@@ -71,11 +66,9 @@ export async function PUT(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
   return NextResponse.json(data);
 }
 
-// カート内のアイテムを削除
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const itemId = searchParams.get("itemId");

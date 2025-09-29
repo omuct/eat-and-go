@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 import Header from "@/app/_components/Header";
 import { CheckCircle, ArrowRight } from "lucide-react";
 import { getOrderNumberById } from "@/app/_utils/orderNumberGenerator";
@@ -28,16 +27,10 @@ export default function OrderCompletePage() {
           }, 100);
           return;
         }
-
         setOrderId(id);
-
-        // 注文番号を取得または生成
         const fetchedOrderNumber = await getOrderNumberById(id);
         setOrderNumber(fetchedOrderNumber);
-
         setIsLoading(false);
-
-        // カウントダウンタイマーを開始（setStateはレンダリング外でのみ呼ぶ）
         timer = setInterval(() => {
           setCounter((prev) => {
             if (prev <= 1) {
@@ -64,7 +57,6 @@ export default function OrderCompletePage() {
     };
   }, [router]);
 
-  // ローディング中の表示
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100">

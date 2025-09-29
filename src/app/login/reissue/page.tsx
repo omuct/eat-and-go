@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 export default function PasswordReset() {
   const [email, setEmail] = useState("");
   const router = useRouter();
-
   const handlePasswordResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -20,7 +19,6 @@ export default function PasswordReset() {
       alert("パスワードリセットに失敗しました: " + error.message);
       return;
     }
-
     alert("パスワードリセット用のメールを送信しました");
     router.push("/login");
   };

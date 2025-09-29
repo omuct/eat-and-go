@@ -11,19 +11,16 @@ export default function TrashNewPage() {
   const placeIdFromQuery = searchParams.get("placeId") || "";
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
-  // 既存ゴミ箱一覧
   const [bins, setBins] = useState<any[]>([]);
   const [name, setName] = useState("");
-  const [placeId, setPlaceId] = useState(placeIdFromQuery);
+  const [placeId] = useState(placeIdFromQuery);
   const [placeName, setPlaceName] = useState("");
   const [googlemapurl, setGooglemapurl] = useState("");
   const [loading, setLoading] = useState(false);
-  // 分別種別と上限
-  const [type, setType] = useState("pet"); // "pet" or "paper"
-  const [capacity, setCapacity] = useState<number>(30); // デフォルト30本
+  const [type, setType] = useState("pet");
+  const [capacity, setCapacity] = useState<number>(30);
 
   useEffect(() => {
-    // placeIdがセットされたらマップ名と地図URL取得＆既存ゴミ箱取得
     const fetchPlaceAndBins = async () => {
       if (!placeId) return;
       const { data: placeData } = await supabase
@@ -33,7 +30,6 @@ export default function TrashNewPage() {
         .single();
       setPlaceName(placeData?.name || "");
       setGooglemapurl(placeData?.googlemapurl || "");
-      // 既存ゴミ箱一覧取得
       const { data: binsData } = await supabase
         .from("trash_bins")
         .select("id, name, lat, lng, amount, capacity, type")
@@ -43,15 +39,12 @@ export default function TrashNewPage() {
     fetchPlaceAndBins();
   }, [placeId]);
 
-  // 仮の地図エリア（実際はGoogleMap等を使う）
-  // 地図クリックで座標取得（仮: クリック位置をdiv内の割合で計算）
   const mapRef = useRef<HTMLDivElement>(null);
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!mapRef.current) return;
     const rect = mapRef.current.getBoundingClientRect();
     const xRatio = (e.clientX - rect.left) / rect.width;
     const yRatio = (e.clientY - rect.top) / rect.height;
-    // 仮: 地図範囲をlat/lngで決め打ち（例: 35.0〜35.1, 135.0〜135.1）
     const latVal = 35.0 + 0.1 * yRatio;
     const lngVal = 135.0 + 0.1 * xRatio;
     setLat(latVal);
@@ -61,7 +54,6 @@ export default function TrashNewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // 追加時はamount=0で初期化
     const { error } = await supabase.from("trash_bins").insert({
       name,
       place_id: placeId,
@@ -118,7 +110,7 @@ export default function TrashNewPage() {
             value={type}
             onChange={(e) => {
               setType(e.target.value);
-              setCapacity(e.target.value === "pet" ? 30 : 50); // 紙は50枚デフォルト
+              setCapacity(e.target.value === "pet" ? 30 : 50);
             }}
             className="border px-2 py-1 rounded w-full"
             required

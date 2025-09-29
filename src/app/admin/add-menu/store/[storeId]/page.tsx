@@ -49,7 +49,6 @@ export default function StoreMenuManagementPage({
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 店舗情報を取得
   const fetchStore = async () => {
     try {
       const { data, error } = await supabase
@@ -76,7 +75,6 @@ export default function StoreMenuManagementPage({
     }
   };
 
-  // 店舗のメニューを取得
   const fetchFoods = async () => {
     if (!store) return;
 
@@ -110,7 +108,6 @@ export default function StoreMenuManagementPage({
     }
   }, [store]);
 
-  // 公開状態を切り替える
   const togglePublish = async (food: Food) => {
     try {
       const { error } = await supabase
@@ -132,7 +129,6 @@ export default function StoreMenuManagementPage({
     }
   };
 
-  // メニューを削除
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`「${name}」を削除してもよろしいですか？`)) return;
 
@@ -148,7 +144,6 @@ export default function StoreMenuManagementPage({
     }
   };
 
-  // 公開期間を更新
   const updatePublishDates = async (
     id: number,
     startDate: string | null,
@@ -172,7 +167,6 @@ export default function StoreMenuManagementPage({
     }
   };
 
-  // 更新ボタンのハンドラー
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchFoods();

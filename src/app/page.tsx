@@ -14,16 +14,12 @@ export default function Home() {
       } = await supabase.auth.getSession();
 
       if (session) {
-        // ログイン済みの場合は注文ページへ
         router.push("/orders");
       } else {
-        // 未ログインの場合はログインページへ
         router.push("/login");
       }
     };
-
     checkAuthStatus();
   }, []);
-
   return null;
 }

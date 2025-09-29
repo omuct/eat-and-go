@@ -1,7 +1,6 @@
-// src/app/admin/add-menu/[id]/page.tsx
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -19,7 +18,7 @@ interface MenuFormData {
   description: string | null;
   image_url: string;
   category: FoodCategory;
-  waste_category: WasteCategory; // 新しい分別項目
+  waste_category: WasteCategory;
   store_name: string;
 }
 
@@ -35,7 +34,7 @@ export default function EditMenuPage({
     description: "",
     image_url: "",
     category: "その他" as FoodCategory,
-    waste_category: "燃えるゴミ" as WasteCategory, // デフォルト値
+    waste_category: "燃えるゴミ" as WasteCategory,
     store_name: "",
   });
   const [stores, setStores] = useState<{ id: number; name: string }[]>([]);
@@ -79,7 +78,7 @@ export default function EditMenuPage({
           description: data.description,
           image_url: data.image_url,
           category: data.category,
-          waste_category: data.waste_category || "燃えるゴミ", // 既存データで分別項目がない場合のデフォルト
+          waste_category: data.waste_category || "燃えるゴミ",
           store_name: data.store_name || "店舗情報なし",
         });
         setImagePreview(data.image_url);
@@ -104,7 +103,6 @@ export default function EditMenuPage({
     const {
       data: { publicUrl },
     } = supabase.storage.from("food-images").getPublicUrl(filePath);
-
     return publicUrl;
   };
 
@@ -126,14 +124,13 @@ export default function EditMenuPage({
           description: formData.description,
           image_url: imageUrl,
           category: formData.category,
-          waste_category: formData.waste_category, // 新しい分別項目
+          waste_category: formData.waste_category,
           store_name: formData.store_name || "店舗情報なし",
         })
         .eq("id", params.id);
 
       if (error) throw error;
 
-      // 店舗IDを取得して適切な戻り先を決定
       const { data: storeData } = await supabase
         .from("stores")
         .select("id")

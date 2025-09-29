@@ -15,7 +15,6 @@ export const uploadImage = async (supabase: SupabaseClient, file: File) => {
       throw error;
     }
 
-    // パスを返す
     return data.path;
   } catch (error) {
     console.error("画像アップロードエラー:", error);
