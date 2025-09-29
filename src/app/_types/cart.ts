@@ -1,6 +1,6 @@
 export interface CartItem {
-  id: string; // UUIDなのでstring型
-  food_id: string; // UUIDなのでstring型
+  id: string;
+  food_id: string;
   name: string;
   price: number;
   quantity: number;
