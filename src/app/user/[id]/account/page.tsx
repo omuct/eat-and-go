@@ -185,6 +185,7 @@ export default function AccountPage({ params }: AccountPageProps) {
             role: "user" as const,
             phone: null,
             address: null,
+            email: session.user.email || null,
           };
 
           const { data: insertedProfile, error: insertError } = await supabase

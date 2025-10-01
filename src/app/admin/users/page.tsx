@@ -78,9 +78,8 @@ export default function AdminUsersPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          `id, name, email, created_at, updated_at, is_admin, role, phone, address, points`
-        )
-        .order("created_at", { ascending: false });
+          "id, name, email, created_at, updated_at, is_admin, role, phone, address, points"
+        );
 
       if (error) {
         console.error("ユーザー一覧取得エラー:", error);
@@ -182,6 +181,7 @@ export default function AdminUsersPage() {
           (user.name?.toLowerCase() || "").includes(lowerTerm) ||
           user.id.toLowerCase().includes(lowerTerm) ||
           (user.role?.toLowerCase() || "").includes(lowerTerm) ||
+          (user.email?.toLowerCase() || "").includes(lowerTerm) ||
           (user.phone?.toLowerCase() || "").includes(lowerTerm) ||
           (user.address?.toLowerCase() || "").includes(lowerTerm) ||
           (userStore?.name?.toLowerCase() || "").includes(lowerTerm) || // 店舗名検索を追加
