@@ -39,12 +39,6 @@ export default function AdminDashboard() {
       path: "/admin/order-history",
     },
     {
-      title: "営業カレンダー",
-      description: "営業時間と休業日の管理",
-      icon: <Calendar size={24} />,
-      path: "/admin/business-time",
-    },
-    {
       title: "お知らせ管理",
       description: "お知らせの作成・編集・公開設定",
       icon: <Bell size={24} />,
