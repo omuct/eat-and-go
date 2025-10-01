@@ -51,7 +51,7 @@ export default function PlaceMapPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 p-6 overflow-x-auto">
+      <div className="min-h-screen bg-gray-50 p-6">
         <div className="mb-4">
           <Link
             href="/orders/map"
@@ -72,7 +72,7 @@ export default function PlaceMapPage() {
             <div className="mb-6">
               {place.googlemapurl ? (
                 <div className="w-full">
-                  <div className="relative w-[900px] mx-auto aspect-[3/4] sm:aspect-[16/9] overflow-visible rounded-md">
+                  <div className="relative w-full max-w-[360px] mx-auto aspect-[3/4] overflow-hidden rounded border">
                     <iframe
                       src={place.googlemapurl}
                       className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
@@ -108,9 +108,9 @@ export default function PlaceMapPage() {
                             }
                             alt="trash bin"
                             title={bin.name}
-                            className="block mx-auto w-4 h-auto sm:w-8 sm:h-auto"
+                            className="block mx-auto w-8 h-auto"
                           />
-                          <span className="inline-block mt-0.5 text-slate-800 bg-white/80 rounded px-0.5 text-[9px] sm:text-[12px]">
+                          <span className="inline-block mt-0.5 text-slate-800 bg-white/80 rounded px-1 text-[12px]">
                             {percent}%
                           </span>
                         </div>

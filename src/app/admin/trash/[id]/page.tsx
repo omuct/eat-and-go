@@ -38,7 +38,6 @@ export default function TrashDetailPage() {
           .eq("id", data.place_id)
           .single();
         setGooglemapurl(placeData?.googlemapurl || "");
-        // 他のごみ箱一覧
         const { data: binsData } = await supabase
           .from("trash_bins")
           .select("id, name, lat, lng, amount, capacity, type")
@@ -136,50 +135,34 @@ export default function TrashDetailPage() {
       {bin ? (
         <div className="bg-white rounded shadow p-4">
           <div>ゴミ箱名: {bin.name}</div>
-          {/* 地図表示・クリックで座標変更 */}
           <div className="my-4">
             <label className="block mb-2">
               地図上で位置を変更できます（クリックで座標セット）
             </label>
             <div className="flex justify-center">
-              <div
-                style={{ maxWidth: 900, width: "100%", position: "relative" }}
-              >
+              <div className="relative w-full max-w-[360px] aspect-[3/4] overflow-hidden rounded border">
                 {googlemapurl ? (
                   <iframe
                     src={googlemapurl}
-                    width="100%"
-                    height="600"
-                    style={{
-                      border: 0,
-                      display: "block",
-                      margin: "0 auto",
-                      pointerEvents: "none",
-                    }}
+                    className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
                 ) : (
-                  <div
-                    className="w-full h-[600px] bg-gray-200"
-                    style={{ pointerEvents: "none" }}
-                  />
+                  <div className="absolute inset-0 bg-gray-200 pointer-events-none" />
                 )}
-                {/* クリック領域を地図上に重ねる */}
                 <div
                   ref={mapRef}
                   onClick={handleMapClick}
-                  className="absolute top-0 left-0 w-full h-full cursor-crosshair"
+                  className="absolute inset-0 cursor-crosshair"
                   style={{ zIndex: 2 }}
                 >
-                  {/* 他のごみ箱を地図上に表示（編集中は強調） */}
                   {bins.map((b) => {
                     const percent =
                       b.capacity && b.capacity > 0
                         ? Math.round((b.amount / b.capacity) * 100)
                         : 0;
                     const isEditing = b.id === bin?.id;
-                    // 編集中のごみ箱は現在の編集座標で描画
                     const lng = isEditing && editLng !== null ? editLng : b.lng;
                     const lat = isEditing && editLat !== null ? editLat : b.lat;
                     return (

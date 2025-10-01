@@ -130,40 +130,27 @@ export default function TrashNewPage() {
             required
           />
         </div>
-        {/* マップIDは自動セット＆非表示 */}
         <input type="hidden" value={placeId} readOnly />
         <div className="mb-2">
           <label>地図上で追加したい場所をクリックしてください</label>
           <div className="flex justify-center mb-2">
-            <div style={{ maxWidth: 900, width: "100%", position: "relative" }}>
+            <div className="relative w-full max-w-[360px] aspect-[3/4] overflow-hidden rounded border">
               {googlemapurl ? (
                 <iframe
                   src={googlemapurl}
-                  width="100%"
-                  height="600"
-                  style={{
-                    border: 0,
-                    display: "block",
-                    margin: "0 auto",
-                    pointerEvents: "none",
-                  }}
+                  className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               ) : (
-                <div
-                  className="w-full h-[600px] bg-gray-200"
-                  style={{ pointerEvents: "none" }}
-                />
+                <div className="absolute inset-0 bg-gray-200 pointer-events-none" />
               )}
-              {/* クリック領域を地図上に重ねる */}
               <div
                 ref={mapRef}
                 onClick={handleMapClick}
-                className="absolute top-0 left-0 w-full h-full cursor-crosshair"
+                className="absolute inset-0 cursor-crosshair"
                 style={{ zIndex: 2 }}
               >
-                {/* 既存ゴミ箱を地図上に表示 */}
                 {bins.map((bin) => {
                   const percent =
                     bin.capacity && bin.capacity > 0
