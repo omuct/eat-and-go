@@ -10,11 +10,21 @@ export default function AdminMapNewPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [googlemapurl, setGooglemapurl] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const isValidEmbedUrl = (url: string) =>
+    /^https:\/\/www\.google\.com\/maps\/embed\?/.test(url.trim());
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidEmbedUrl(googlemapurl)) {
+      alert(
+        "Googleマップの埋め込み用URL（https://www.google.com/maps/embed?...）を入力してください"
+      );
+      return;
+    }
     setLoading(true);
     const { error } = await supabase
       .from("places")
@@ -76,10 +86,40 @@ export default function AdminMapNewPage() {
           <input
             type="text"
             value={googlemapurl}
-            onChange={(e) => setGooglemapurl(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setGooglemapurl(v);
+              if (!v) {
+                setUrlError(null);
+              } else if (!isValidEmbedUrl(v)) {
+                setUrlError(
+                  "埋め込み用のURLではありません（https://www.google.com/maps/embed?... を入力してください）"
+                );
+              } else {
+                setUrlError(null);
+              }
+            }}
             className="border px-3 py-2 rounded w-full"
             placeholder="https://www.google.com/maps/embed?..."
           />
+          {urlError && <p className="mt-1 text-xs text-red-600">{urlError}</p>}
+          <div className="mt-4">
+            <p className="text-sm font-semibold mb-2">プレビュー</p>
+            {googlemapurl && isValidEmbedUrl(googlemapurl) ? (
+              <div className="relative w-full max-w-[360px] aspect-[3/4] overflow-hidden rounded border">
+                <iframe
+                  src={googlemapurl}
+                  className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">
+                有効な埋め込みURLを入力するとプレビューが表示されます
+              </p>
+            )}
+          </div>
         </div>
         <button
           type="submit"
