@@ -251,12 +251,11 @@ export default function AccountPage({ params }: AccountPageProps) {
   const handleSave = async () => {
     try {
       if (!editedProfile.name?.trim()) {
-        setErrorMessage("名前を入力してください");
         toast.error("名前を入力してください");
         return;
       }
 
-      const { data, error } = await supabase
+      const { data: updatedProfile, error: profileError } = await supabase
         .from("profiles")
         .update({
           name: editedProfile.name.trim(),
@@ -267,24 +266,38 @@ export default function AccountPage({ params }: AccountPageProps) {
         .select("id, name, role, phone, address")
         .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.updateUser({
+        email: email,
+      });
+
+      if (userError) throw userError;
+
+      await supabase
+        .from("profiles")
+        .update({ email: email })
+        .eq("id", params.id);
 
       const typedProfile: UserProfile = {
-        id: String(data.id),
-        name: data.name ? String(data.name) : null,
-        role: (data.role as "admin" | "store_staff" | "user") || "user",
-        phone: data.phone ? String(data.phone) : null,
-        address: data.address ? String(data.address) : null,
+        id: String(updatedProfile.id),
+        name: updatedProfile.name ? String(updatedProfile.name) : null,
+        role:
+          (updatedProfile.role as "admin" | "store_staff" | "user") || "user",
+        phone: updatedProfile.phone ? String(updatedProfile.phone) : null,
+        address: updatedProfile.address ? String(updatedProfile.address) : null,
       };
 
       setProfile(typedProfile);
       setEditedProfile(typedProfile);
       setIsEditing(false);
       setErrorMessage("");
-      toast.success("プロフィールを更新しました");
+      toast.success("プロフィールとメールアドレスを更新しました");
     } catch (error: any) {
       console.error("Save error:", error);
-      setErrorMessage(error.message || "更新中にエラーが発生しました");
       toast.error(error.message || "更新中にエラーが発生しました");
     }
   };
@@ -504,9 +517,18 @@ export default function AccountPage({ params }: AccountPageProps) {
                     <Mail className="w-4 h-4 inline mr-1" />
                     メールアドレス
                   </label>
-                  <p className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-600">
-                    {email || "未設定"}
-                  </p>
+                  {isEditing && !isSocialAccount ? (
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-600">
+                      {email || "未設定"}
+                    </p>
+                  )}
                   {isSocialAccount && (
                     <p className="text-sm text-gray-500 mt-1">
                       ソーシャルアカウントでログインしているため変更できません
