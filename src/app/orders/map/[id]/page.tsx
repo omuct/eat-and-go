@@ -91,7 +91,7 @@ export default function PlaceMapPage() {
                       return (
                         <div
                           key={bin.id}
-                          className="text-center w-6 sm:w-8"
+                          className="text-center"
                           style={{
                             position: "absolute",
                             left: `${left}%`,
@@ -108,9 +108,9 @@ export default function PlaceMapPage() {
                             }
                             alt="trash bin"
                             title={bin.name}
-                            className="block mx-auto w-6 h-6 sm:w-8 sm:h-8"
+                            className="block mx-auto w-4 h-auto sm:w-8 sm:h-auto"
                           />
-                          <span className="inline-block mt-0.5 text-slate-800 bg-white/80 rounded px-1 text-[10px] sm:text-[12px]">
+                          <span className="inline-block mt-0.5 text-slate-800 bg-white/80 rounded px-0.5 text-[9px] sm:text-[12px]">
                             {percent}%
                           </span>
                         </div>
