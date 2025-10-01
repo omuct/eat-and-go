@@ -116,7 +116,7 @@ export default function Login() {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      router.push(`/user/${user.id}/account`);
+      router.push(`/orders`);
     } else {
       router.push("/login");
     }
