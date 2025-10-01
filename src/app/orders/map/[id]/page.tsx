@@ -71,19 +71,10 @@ export default function PlaceMapPage() {
             )}
             <div className="mb-6 flex justify-center">
               {place.googlemapurl ? (
-                <div
-                  style={{ maxWidth: 900, width: "100%", position: "relative" }}
-                >
+                <div className="relative w-full max-w-[900px] mx-auto aspect-[3/4] sm:aspect-[16/9] overflow-hidden rounded-md">
                   <iframe
                     src={place.googlemapurl}
-                    width="100%"
-                    height="600"
-                    style={{
-                      border: 0,
-                      display: "block",
-                      margin: "0 auto",
-                      pointerEvents: "none",
-                    }}
+                    className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
