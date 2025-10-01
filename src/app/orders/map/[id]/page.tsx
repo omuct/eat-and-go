@@ -79,7 +79,6 @@ export default function PlaceMapPage() {
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                     />
-                    {/* ゴミ箱画像を地図上に重ねて表示 */}
                     {bins.map((bin) => {
                       const percent =
                         bin.capacity && bin.capacity > 0
@@ -87,18 +86,16 @@ export default function PlaceMapPage() {
                           : 0;
                       const rawLeft = ((bin.lng - 135.0) / 0.1) * 100;
                       const rawTop = ((bin.lat - 35.0) / 0.1) * 100;
-                      // 画面外にはみ出さないように数%のパディングを確保
                       const left = Math.max(3, Math.min(97, rawLeft));
                       const top = Math.max(6, Math.min(94, rawTop));
                       return (
                         <div
                           key={bin.id}
+                          className="text-center w-6 sm:w-8"
                           style={{
                             position: "absolute",
                             left: `${left}%`,
                             top: `${top}%`,
-                            width: 32,
-                            textAlign: "center",
                             transform: "translate(-50%, -100%)",
                             pointerEvents: "none",
                           }}
@@ -111,24 +108,9 @@ export default function PlaceMapPage() {
                             }
                             alt="trash bin"
                             title={bin.name}
-                            style={{
-                              width: 32,
-                              height: 32,
-                              display: "block",
-                              margin: "0 auto",
-                            }}
+                            className="block mx-auto w-6 h-6 sm:w-8 sm:h-8"
                           />
-                          <span
-                            style={{
-                              fontSize: 12,
-                              color: "#1e293b",
-                              background: "rgba(255,255,255,0.8)",
-                              borderRadius: 4,
-                              padding: "0 4px",
-                              marginTop: 2,
-                              display: "inline-block",
-                            }}
-                          >
+                          <span className="inline-block mt-0.5 text-slate-800 bg-white/80 rounded px-1 text-[10px] sm:text-[12px]">
                             {percent}%
                           </span>
                         </div>
