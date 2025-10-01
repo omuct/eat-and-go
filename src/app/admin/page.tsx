@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   List,
@@ -11,9 +12,12 @@ import {
   MapPin,
   Trash2,
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const [isStaff, setIsStaff] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const menuItems = [
     {
@@ -66,26 +70,76 @@ export default function AdminDashboard() {
     },
   ];
 
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+        if (!session) {
+          router.push("/login");
+          return;
+        }
+        // プロフィールから役割/管理者フラグを確認
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, is_admin")
+          .eq("id", session.user.id)
+          .single();
+
+        const role = (profile as any)?.role as string | undefined;
+        const isAdmin = Boolean((profile as any)?.is_admin);
+
+        let staff = false;
+        if (!isAdmin) {
+          if (role === "staff") {
+            staff = true;
+          } else {
+            const { data: storeStaffRows } = await supabase
+              .from("store_staff")
+              .select("id")
+              .eq("user_id", session.user.id)
+              .limit(1);
+            staff = Array.isArray(storeStaffRows) && storeStaffRows.length > 0;
+          }
+        }
+        setIsStaff(staff);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [router]);
+
+  const visibleMenuItems = isStaff
+    ? menuItems.filter((m) =>
+        ["メニュー管理", "注文管理", "お店管理"].includes(m.title)
+      )
+    : menuItems;
+
   return (
     <div className="min-h-screen bg-gray-100">
       <main className="p-8">
         <h1 className="text-2xl font-bold mb-6">管理者ダッシュボード</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
-            <div
-              key={item.path}
-              onClick={() => router.push(item.path)}
-              className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
-            >
-              <div className="flex items-center mb-4 text-gray-600">
-                {item.icon}
-                <h2 className="text-xl font-semibold ml-3">{item.title}</h2>
+        {loading ? (
+          <div className="text-gray-500">読み込み中...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visibleMenuItems.map((item) => (
+              <div
+                key={item.path}
+                onClick={() => router.push(item.path)}
+                className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+              >
+                <div className="flex items-center mb-4 text-gray-600">
+                  {item.icon}
+                  <h2 className="text-xl font-semibold ml-3">{item.title}</h2>
+                </div>
+                <p className="text-gray-600">{item.description}</p>
               </div>
-              <p className="text-gray-600">{item.description}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
