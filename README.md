@@ -219,6 +219,5 @@ npm run dev
   <h3>🌟 持続可能な未来のイベントを、一緒に創りましょう 🌟</h3>
   <p>🎪 EAT & GOで、誰もが笑顔で楽しめる祭りを実現 🎪</p>
   <p>Made with by プログラミング研究会</p>
-  
-  ![EAT & GO Logo](https://eat-and-go.vercel.app/)
+  <a>https://eat-and-go.vercel.app/</a>
 </div>
