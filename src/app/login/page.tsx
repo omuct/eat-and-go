@@ -111,13 +111,22 @@ export default function Login() {
       return;
     }
 
-    router.push("/orders");
+    // ログイン後はアカウント設定へ
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      router.push(`/user/${user.id}/account`);
+    } else {
+      router.push("/login");
+    }
   };
 
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/orders` },
+      // OAuth後のコールバックでもホームがアカウント設定へ誘導されるようルートを返す
+      options: { redirectTo: `${window.location.origin}/` },
     });
 
     if (error) {

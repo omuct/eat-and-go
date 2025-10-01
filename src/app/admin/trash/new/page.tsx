@@ -115,8 +115,8 @@ export default function TrashNewPage() {
             className="border px-2 py-1 rounded w-full"
             required
           >
-            <option value="pet">ペットボトル</option>
-            <option value="paper">紙</option>
+            <option value="pet">プラスチック</option>
+            <option value="paper">燃えるゴミ</option>
           </select>
         </div>
         <div className="mb-2">

@@ -24,6 +24,11 @@ interface MenuFormData {
 }
 
 export default function AddNewMenu() {
+  // 分別カテゴリーの選択肢を「燃えるゴミ」「プラスチック」のみに制限
+  const LIMITED_WASTE_CATEGORIES = WASTE_CATEGORIES.filter(
+    (c) => c.value === "燃えるゴミ" || c.value === "プラスチック"
+  );
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const storeId = searchParams.get("storeId");
@@ -301,7 +306,7 @@ export default function AddNewMenu() {
                   className="w-full px-3 py-2 border rounded"
                   required
                 >
-                  {WASTE_CATEGORIES.map((category) => (
+                  {LIMITED_WASTE_CATEGORIES.map((category) => (
                     <option key={category.value} value={category.value}>
                       {category.label}
                     </option>

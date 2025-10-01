@@ -6,11 +6,7 @@ export type FoodCategory =
   | "ホットスナック"
   | "その他";
 
-export type WasteCategory =
-  | "ペットボトル"
-  | "缶・びん"
-  | "燃えるゴミ"
-  | "その他";
+export type WasteCategory = "プラスチック" | "燃えるゴミ";
 
 export const CATEGORIES: { value: FoodCategory; label: string }[] = [
   { value: "丼", label: "丼もの" },
@@ -21,10 +17,8 @@ export const CATEGORIES: { value: FoodCategory; label: string }[] = [
 ];
 
 export const WASTE_CATEGORIES: { value: WasteCategory; label: string }[] = [
-  { value: "ペットボトル", label: "ペットボトル" },
-  { value: "缶・びん", label: "缶・びん" },
+  { value: "プラスチック", label: "プラスチック" },
   { value: "燃えるゴミ", label: "燃えるゴミ" },
-  { value: "その他", label: "その他" },
 ];
 
 export interface Food {
