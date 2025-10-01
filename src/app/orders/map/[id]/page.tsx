@@ -51,7 +51,7 @@ export default function PlaceMapPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-gray-50 p-6 overflow-x-auto">
         <div className="mb-4">
           <Link
             href="/orders/map"
@@ -69,65 +69,72 @@ export default function PlaceMapPage() {
             {place.description && (
               <div className="mb-2 text-gray-600">{place.description}</div>
             )}
-            <div className="mb-6 flex justify-center">
+            <div className="mb-6">
               {place.googlemapurl ? (
-                <div className="relative w-full max-w-[900px] mx-auto aspect-[3/4] sm:aspect-[16/9] overflow-hidden rounded-md">
-                  <iframe
-                    src={place.googlemapurl}
-                    className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                  {/* ゴミ箱画像を地図上に重ねて表示 */}
-                  {bins.map((bin) => {
-                    const percent =
-                      bin.capacity && bin.capacity > 0
-                        ? Math.round((bin.amount / bin.capacity) * 100)
-                        : 0;
-                    return (
-                      <div
-                        key={bin.id}
-                        style={{
-                          position: "absolute",
-                          left: `${((bin.lng - 135.0) / 0.1) * 100}%`,
-                          top: `${((bin.lat - 35.0) / 0.1) * 100}%`,
-                          width: 32,
-                          textAlign: "center",
-                          transform: "translate(-50%, -100%)",
-                          pointerEvents: "none",
-                        }}
-                      >
-                        <img
-                          src={
-                            percent >= 90
-                              ? "/gomibako_full.png"
-                              : "/gomibako_empty.png"
-                          }
-                          alt="trash bin"
-                          title={bin.name}
+                <div className="w-full">
+                  <div className="relative w-[900px] mx-auto aspect-[3/4] sm:aspect-[16/9] overflow-visible rounded-md">
+                    <iframe
+                      src={place.googlemapurl}
+                      className="absolute inset-0 w-full h-full block m-0 border-0 pointer-events-none"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                    {/* ゴミ箱画像を地図上に重ねて表示 */}
+                    {bins.map((bin) => {
+                      const percent =
+                        bin.capacity && bin.capacity > 0
+                          ? Math.round((bin.amount / bin.capacity) * 100)
+                          : 0;
+                      const rawLeft = ((bin.lng - 135.0) / 0.1) * 100;
+                      const rawTop = ((bin.lat - 35.0) / 0.1) * 100;
+                      // 画面外にはみ出さないように数%のパディングを確保
+                      const left = Math.max(3, Math.min(97, rawLeft));
+                      const top = Math.max(6, Math.min(94, rawTop));
+                      return (
+                        <div
+                          key={bin.id}
                           style={{
+                            position: "absolute",
+                            left: `${left}%`,
+                            top: `${top}%`,
                             width: 32,
-                            height: 32,
-                            display: "block",
-                            margin: "0 auto",
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "#1e293b",
-                            background: "rgba(255,255,255,0.8)",
-                            borderRadius: 4,
-                            padding: "0 4px",
-                            marginTop: 2,
-                            display: "inline-block",
+                            textAlign: "center",
+                            transform: "translate(-50%, -100%)",
+                            pointerEvents: "none",
                           }}
                         >
-                          {percent}%
-                        </span>
-                      </div>
-                    );
-                  })}
+                          <img
+                            src={
+                              percent >= 90
+                                ? "/gomibako_full.png"
+                                : "/gomibako_empty.png"
+                            }
+                            alt="trash bin"
+                            title={bin.name}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              display: "block",
+                              margin: "0 auto",
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: "#1e293b",
+                              background: "rgba(255,255,255,0.8)",
+                              borderRadius: 4,
+                              padding: "0 4px",
+                              marginTop: 2,
+                              display: "inline-block",
+                            }}
+                          >
+                            {percent}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div>GoogleマップURLが登録されていません</div>
