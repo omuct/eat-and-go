@@ -81,6 +81,20 @@ export const useAuth = () => {
           }
         }
 
+        // 認証側のメールをprofiles.emailへ自動同期（欠落/不一致時のみ）
+        const authEmail = session.user.email || null;
+        if (authEmail) {
+          try {
+            await supabase
+              .from("profiles")
+              .update({ email: authEmail })
+              .eq("id", session.user.id)
+              .or(`email.is.null,email.neq.${authEmail}`);
+          } catch (e) {
+            console.warn("profiles.email 同期に失敗しました", e);
+          }
+        }
+
         setUser({
           ...typedProfile,
           is_admin: typedProfile.is_admin || typedProfile.role === "admin",

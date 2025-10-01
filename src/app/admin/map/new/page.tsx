@@ -76,7 +76,7 @@ export default function AdminMapNewPage() {
             Googleマップ埋め込みURL
           </label>
           <p className="text-xs text-red-600 mb-1">
-            ※Googleマップの埋め込みコードから <b>src属性のURLのみ</b>{" "}
+            ※Googleマップの共有、地図を埋め込むから <b>src属性のURLのみ</b>{" "}
             を入力してください。iframeタグ全体ではなく、
             <span className="font-mono">
               https://www.google.com/maps/embed?...
