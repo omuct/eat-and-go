@@ -6,6 +6,10 @@
 
 「EAT & GO」は、お祭りやイベント会場での屋台の行列やごみ処理の問題を解決するために開発された革新的なシステムです。来場者・出店者・運営側それぞれに利便性をもたらし、持続可能で誰もが快適に楽しむことができる祭りの実現を目指します。
 
+## 🚀 デモページ
+
+**[📱 デモを体験する](https://eat-and-go.vercel.app/)**
+
 ### 🎯 解決する課題
 
 - 🚶‍♂️ 屋台の長い行列による来場者の負担
@@ -211,7 +215,7 @@ npm run dev
 ## 📞 お問い合わせ
 
 - 📧 Email: [ri22077b@st.omu.ac.jp]
-- 🐙 GitHub: [https://github.com/omuct]
+- 🐙 GitHub: [https://github.com/omuct-proken]
 
 ---
 
@@ -219,5 +223,4 @@ npm run dev
   <h3>🌟 持続可能な未来のイベントを、一緒に創りましょう 🌟</h3>
   <p>🎪 EAT & GOで、誰もが笑顔で楽しめる祭りを実現 🎪</p>
   <p>Made with by プログラミング研究会</p>
-  <a>https://eat-and-go.vercel.app/</a>
 </div>
