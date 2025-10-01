@@ -14,7 +14,7 @@ export default function Home() {
       } = await supabase.auth.getSession();
 
       if (session) {
-        router.push(`/user/${session.user.id}/account`);
+        router.push(`/orders`);
       } else {
         router.push("/login");
       }
