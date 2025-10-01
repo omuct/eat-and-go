@@ -139,7 +139,7 @@ const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/orders")}
             className="text-lg sm:text-xl font-bold cursor-pointer hover:text-blue-600 transition-colors"
           >
             EAT & GO
