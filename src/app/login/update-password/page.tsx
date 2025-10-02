@@ -21,6 +21,17 @@ export default function UpdatePassword() {
         if (!data.session) {
           const href =
             typeof window !== "undefined" ? window.location.href : "";
+          // 1) トークンハッシュ形式: #access_token=...&refresh_token=...
+          if (typeof window !== "undefined" && window.location.hash) {
+            const hash = new URLSearchParams(window.location.hash.substring(1));
+            const access_token = hash.get("access_token");
+            const refresh_token = hash.get("refresh_token");
+            if (access_token && refresh_token) {
+              await supabase.auth.setSession({ access_token, refresh_token });
+              return;
+            }
+          }
+          // 2) PKCE code 形式
           if (href && href.includes("code=")) {
             await supabase.auth.exchangeCodeForSession(href as any);
           }
