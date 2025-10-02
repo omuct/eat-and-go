@@ -48,6 +48,8 @@ interface Order {
   user_name?: string;
   details?: OrderDetail[];
   order_number?: string;
+  // 事前計算した廃棄カテゴリ
+  waste_categories?: string[];
 }
 
 interface Store {
@@ -83,28 +85,59 @@ export default function StoreOrderHistoryPage({
     {}
   );
 
-  const getWasteCategories = (orderDetails: OrderDetail[]) => {
-    const wasteCategories = new Set<string>();
+  const getWasteCategories = async (orderDetails: OrderDetail[]) => {
+    // foods テーブルの waste_category を参照してカテゴリを集計
+    // food_id が無い明細はデフォルトで「燃えるゴミ」に扱う
+    const ids = Array.from(
+      new Set(orderDetails.map((d) => d.food_id).filter(Boolean))
+    );
 
-    orderDetails.forEach((detail) => {
-      const name = detail.name.toLowerCase();
-      if (
-        name.includes("ペットボトル") ||
-        name.includes("ドリンク") ||
-        name.includes("お茶")
-      ) {
-        wasteCategories.add("ペットボトル");
-      } else if (name.includes("缶") || name.includes("ビール")) {
-        wasteCategories.add("缶・びん");
+    const categories = new Set<string>();
+
+    if (ids.length > 0) {
+      const { data, error } = await supabase
+        .from("foods")
+        .select("id, waste_category")
+        .in("id", ids);
+
+      if (!error && data) {
+        const byId = new Map<string, any>(
+          data.map((row: any) => [row.id, row])
+        );
+        for (const detail of orderDetails) {
+          const row = detail.food_id ? byId.get(detail.food_id) : undefined;
+          const cat = (row?.waste_category ?? "").toString().trim();
+          if (cat) {
+            categories.add(cat);
+          } else {
+            categories.add("燃えるゴミ");
+          }
+        }
       } else {
-        wasteCategories.add("燃えるゴミ");
+        // 取得に失敗した場合は保守的に「燃えるゴミ」
+        orderDetails.forEach(() => categories.add("燃えるゴミ"));
       }
-    });
-    return Array.from(wasteCategories);
+    } else {
+      // food_id が無い場合
+      orderDetails.forEach(() => categories.add("燃えるゴミ"));
+    }
+
+    // 出力順を安定化（プラスチック → 燃えるゴミ）。存在するものだけ返却。
+    const ordered: string[] = [];
+    if (categories.has("プラスチック")) ordered.push("プラスチック");
+    if (categories.has("燃えるゴミ")) ordered.push("燃えるゴミ");
+    // どちらも無い（異なる値のみ）の場合はユニーク値を配列化して返す
+    if (ordered.length === 0 && categories.size > 0) {
+      return Array.from(categories);
+    }
+    return ordered.length > 0 ? ordered : ["燃えるゴミ"]; // デフォルト
   };
 
-  const generateQRCodeData = (order: Order) => {
-    const wasteCategories = getWasteCategories(order.details || []);
+  const generateQRCodeData = async (order: Order) => {
+    const wasteCategories =
+      order.waste_categories && order.waste_categories.length > 0
+        ? order.waste_categories
+        : await getWasteCategories(order.details || []);
     const qrData = {
       orderId: order.id,
       orderNumber: order.order_number || `#${order.id.substring(0, 8)}`,
@@ -189,7 +222,7 @@ export default function StoreOrderHistoryPage({
       const currentPrintCount = printCounts[orderId] || 0;
       const newPrintCount = currentPrintCount + 1;
       setPrintCounts((prev) => ({ ...prev, [orderId]: newPrintCount }));
-      const qrData = generateQRCodeData(order);
+      const qrData = await generateQRCodeData(order);
       const qrImage = await generateQRCodeImage(qrData);
       executePrintDirect(order, qrImage, newPrintCount);
     } catch (error) {
@@ -595,12 +628,62 @@ export default function StoreOrderHistoryPage({
       console.log("フィルター後の取得データ:", data?.length, "件");
       console.log("取得した注文データの詳細:", data);
 
-      const formattedOrders =
+      let formattedOrders =
         data?.map((order: any) => ({
           ...order,
           user_name: order.profiles?.name || "ゲスト",
           details: order.order_details || [],
         })) || [];
+
+      // foods.waste_category を参照して、各注文の廃棄カテゴリを事前計算
+      try {
+        const allFoodIds = Array.from(
+          new Set(
+            formattedOrders.flatMap((o: any) =>
+              (o.details || []).map((d: any) => d.food_id).filter(Boolean)
+            )
+          )
+        ) as string[];
+
+        if (allFoodIds.length > 0) {
+          const { data: foodsData, error: foodsError } = await supabase
+            .from("foods")
+            .select("id, waste_category")
+            .in("id", allFoodIds);
+
+          if (!foodsError && foodsData) {
+            const byId = new Map<string, any>(
+              foodsData.map((row: any) => [String(row.id), row])
+            );
+
+            formattedOrders = formattedOrders.map((o: any) => {
+              const categorySet = new Set<string>();
+              (o.details || []).forEach((d: any) => {
+                const row = d.food_id ? byId.get(String(d.food_id)) : undefined;
+                const cat = (row?.waste_category ?? "").toString().trim();
+                if (cat) {
+                  categorySet.add(cat);
+                } else {
+                  categorySet.add("燃えるゴミ");
+                }
+              });
+              const ordered: string[] = [];
+              if (categorySet.has("プラスチック")) ordered.push("プラスチック");
+              if (categorySet.has("燃えるゴミ")) ordered.push("燃えるゴミ");
+              const waste_categories =
+                ordered.length > 0
+                  ? ordered
+                  : categorySet.size > 0
+                    ? Array.from(categorySet)
+                    : ["燃えるゴミ"]; // デフォルト
+              return { ...o, waste_categories };
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("廃棄カテゴリ事前計算に失敗しました", e);
+        // 失敗時はそのまま
+      }
 
       console.log("フォーマット後の注文数:", formattedOrders.length);
       setOrders(formattedOrders);
@@ -1245,16 +1328,16 @@ export default function StoreOrderHistoryPage({
                                     廃棄分別情報
                                   </h5>
                                   <div className="space-y-1 text-sm">
-                                    {getWasteCategories(
-                                      order.details || []
-                                    ).map((category, index) => (
-                                      <span
-                                        key={index}
-                                        className="inline-block px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs mr-1 mb-1"
-                                      >
-                                        {category}
-                                      </span>
-                                    ))}
+                                    {(order.waste_categories ?? []).map(
+                                      (category: string, index: number) => (
+                                        <span
+                                          key={index}
+                                          className="inline-block px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs mr-1 mb-1"
+                                        >
+                                          {category}
+                                        </span>
+                                      )
+                                    )}
                                   </div>
                                 </div>
                               </div>
