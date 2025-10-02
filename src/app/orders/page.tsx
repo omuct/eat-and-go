@@ -315,7 +315,13 @@ export default function OrdersPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       <Header cartCount={cartCount} cartAnimating={cartAnimating} />
-      <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
+      <ToastContainer
+        position="bottom-center"
+        autoClose={3000}
+        hideProgressBar
+        // iOSなどのセーフエリア分だけ下に余白を足して隠れないようにする
+        style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+      />
       <main className="p-8">
         {/* お知らせセクション */}{" "}
         <section className="max-w-7xl mx-auto mb-12">
