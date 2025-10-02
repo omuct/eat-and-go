@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Utensils, Eye, EyeOff, UserPlus } from "lucide-react";
+import { format } from "date-fns";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isOperating, setIsOperating] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
@@ -25,7 +28,6 @@ export default function Login() {
       return;
     }
 
-    // ログイン後にプロフィール登録状況を確認
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -34,7 +36,6 @@ export default function Login() {
       console.log("ログインユーザー:", user.id);
 
       try {
-        // プロフィール情報を取得 - student_numberカラムを削除
         const { data: profiles, error: profileError } = await supabase
           .from("profiles")
           .select("name, phone, role")
@@ -55,35 +56,17 @@ export default function Login() {
         const profile = profiles?.[0];
 
         if (!profile) {
-          console.log("プロフィールデータが存在しない、アカウント設定へ");
           router.push(`/user/${user.id}/account`);
         } else if (!profile.name || profile.name.trim() === "") {
-          console.log("名前が未入力、アカウント設定へ");
           router.push(`/user/${user.id}/account`);
         } else {
-          console.log("プロフィール登録済み、注文画面へ");
           router.push("/orders");
         }
       } catch (error) {
-        console.error("プロフィール確認中にエラー:", error);
-        // エラーが発生した場合はアカウント設定へ誘導
         router.push(`/user/${user.id}/account`);
       }
     } else {
-      console.log("ユーザー情報取得失敗");
       router.push("/login");
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/` },
-    });
-
-    if (error) {
-      alert("Googleログインに失敗しました: " + error.message);
-      return;
     }
   };
 
@@ -93,12 +76,9 @@ export default function Login() {
         <div className="bg-gray-900 p-8 text-white text-center">
           <Utensils className="w-16 h-16 mx-auto mb-4 text-white" />
           <h1 className="text-2xl font-bold mb-2">EAT & GO</h1>
-          <p className="text-sm text-gray-400">簡単注文</p>
         </div>
 
         <div className="p-8">
-          {/* 営業状況と営業時間表示は非表示化しました */}
-
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label
