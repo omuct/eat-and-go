@@ -111,13 +111,52 @@ export default function Login() {
       return;
     }
 
-    // ログイン後はアカウント設定へ
+    // ログイン後にプロフィール登録状況を確認
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
     if (user) {
-      router.push(`/orders`);
+      console.log("ログインユーザー:", user.id);
+
+      try {
+        // プロフィール情報を取得 - student_numberカラムを削除
+        const { data: profiles, error: profileError } = await supabase
+          .from("profiles")
+          .select("name, phone, role")
+          .eq("id", user.id);
+
+        console.log("プロフィールクエリレスポンス:", {
+          profiles,
+          profileError,
+        });
+
+        if (profileError) {
+          console.error("プロフィール取得エラー:", profileError);
+          console.log("プロフィールが見つからない、アカウント設定へ");
+          router.push(`/user/${user.id}/account`);
+          return;
+        }
+
+        const profile = profiles?.[0];
+
+        if (!profile) {
+          console.log("プロフィールデータが存在しない、アカウント設定へ");
+          router.push(`/user/${user.id}/account`);
+        } else if (!profile.name || profile.name.trim() === "") {
+          console.log("名前が未入力、アカウント設定へ");
+          router.push(`/user/${user.id}/account`);
+        } else {
+          console.log("プロフィール登録済み、注文画面へ");
+          router.push("/orders");
+        }
+      } catch (error) {
+        console.error("プロフィール確認中にエラー:", error);
+        // エラーが発生した場合はアカウント設定へ誘導
+        router.push(`/user/${user.id}/account`);
+      }
     } else {
+      console.log("ユーザー情報取得失敗");
       router.push("/login");
     }
   };
@@ -125,7 +164,6 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      // OAuth後のコールバックでもホームがアカウント設定へ誘導されるようルートを返す
       options: { redirectTo: `${window.location.origin}/` },
     });
 
