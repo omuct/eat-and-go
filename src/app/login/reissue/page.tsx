@@ -10,9 +10,11 @@ export default function PasswordReset() {
   const handlePasswordResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 現在のドメインに合わせて動的にリダイレクト先を設定
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const redirectTo = `${origin}/login/update-password`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo:
-        "https://react-gakusyoku-app.vercel.app/login/update-password",
+      redirectTo,
     });
 
     if (error) {
