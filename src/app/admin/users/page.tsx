@@ -499,9 +499,9 @@ export default function AdminUsersPage() {
         </div>
 
         {/* ユーザー一覧テーブル */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+        <div className="bg-white rounded-lg shadow">
+          <div className="w-full overflow-x-auto">
+            <table className="min-w-[1100px] divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -522,7 +522,7 @@ export default function AdminUsersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     登録日
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                     操作
                   </th>
                 </tr>
@@ -704,28 +704,28 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(user.created_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-6 py-4 text-sm w-24 align-middle">
                         {isEditing ? (
-                          <div className="flex space-x-2">
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleSave(user.id)}
-                              className="text-green-600 hover:text-green-900"
+                              className="text-green-600 hover:text-green-900 p-1 rounded"
                             >
-                              <Save className="w-4 h-4" />
+                              <Save className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={handleCancel}
-                              className="text-gray-600 hover:text-gray-900"
+                              className="text-gray-600 hover:text-gray-900 p-1 rounded"
                             >
-                              <X className="w-4 h-4" />
+                              <X className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         ) : (
                           <button
                             onClick={() => handleEdit(user)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                         )}
                       </td>

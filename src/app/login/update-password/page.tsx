@@ -1,40 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function UpdatePassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [sessionReady, setSessionReady] = useState<boolean | null>(null);
   const router = useRouter();
+
+  // セッション確認（メールリンク経由でのアクセスを想定）
+  useEffect(() => {
+    const ensureSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setSessionReady(true);
+          return;
+        }
+        // detectSessionInUrl が有効なため通常は不要だが、念のため再取得
+        const { data: data2 } = await supabase.auth.getSession();
+        setSessionReady(!!data2.session);
+      } catch {
+        setSessionReady(false);
+      }
+    };
+    ensureSession();
+  }, []);
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (!newPassword.trim()) {
+      toast.error("新しいパスワードを入力してください");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("パスワードは6文字以上で入力してください");
+      return;
+    }
     if (newPassword !== confirmPassword) {
-      alert("パスワードが一致しません");
+      toast.error("パスワードが一致しません");
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    try {
+      setSubmitting(true);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) throw error;
 
-    if (error) {
-      alert("パスワード更新に失敗しました: " + error.message);
-      return;
+      toast.success("パスワードを変更しました");
+      // 任意: ログイン画面に戻す
+      router.push("/login");
+    } catch (err: any) {
+      toast.error(err?.message || "パスワード更新に失敗しました");
+    } finally {
+      setSubmitting(false);
     }
-
-    alert("パスワードが正常に更新されました");
-    router.push("/login");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
+      <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
       <form
         onSubmit={handlePasswordUpdate}
         className="bg-white p-6 sm:p-8 rounded shadow-md w-full max-w-md"
       >
         <h2 className="text-2xl mb-4 text-center">新しいパスワードの設定</h2>
+
+        {sessionReady === false && (
+          <div className="mb-4 text-sm text-red-600">
+            パスワード再設定メールのリンクからアクセスしてください。既にこのページを開いている場合は、再度メールのリンクをクリックしてお試しください。
+          </div>
+        )}
+
         <input
           type="password"
           placeholder="新しいパスワード"
@@ -55,9 +99,10 @@ export default function UpdatePassword() {
         />
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          disabled={submitting || sessionReady === false}
+          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          パスワードを更新
+          {submitting ? "更新中..." : "パスワードを更新"}
         </button>
       </form>
     </div>
