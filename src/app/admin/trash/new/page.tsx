@@ -120,7 +120,7 @@ export default function TrashNewPage() {
           </select>
         </div>
         <div className="mb-2">
-          <label>上限（{type === "pet" ? "本" : "枚"}）</label>
+          <label>上限（{type === "pet" ? "個" : "枚"}）</label>
           <input
             type="number"
             value={capacity}
