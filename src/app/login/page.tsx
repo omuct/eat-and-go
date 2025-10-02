@@ -1,102 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Utensils, Eye, EyeOff, UserPlus } from "lucide-react";
-import { format } from "date-fns";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isOperating, setIsOperating] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    const checkOperatingStatus = async () => {
-      try {
-        const now = new Date();
-        setCurrentTime(now);
-
-        const currentDay = now.getDay();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-
-        const isWeekday = currentDay >= 1 && currentDay <= 5;
-
-        const { data } = await supabase
-          .from("business_closures")
-          .select("*")
-          .eq("date", format(now, "yyyy-MM-dd"))
-          .maybeSingle();
-
-        let operatingStatus = false;
-
-        if (!data) {
-          const startTime = new Date();
-          startTime.setHours(9, 0, 0, 0);
-
-          const endTime = new Date();
-          endTime.setHours(14, 0, 0, 0);
-
-          const currentTimeObj = new Date();
-          currentTimeObj.setHours(currentHour, currentMinute, 0, 0);
-
-          operatingStatus =
-            isWeekday &&
-            currentTimeObj >= startTime &&
-            currentTimeObj < endTime;
-        } else {
-          if (data.is_open === false) {
-            operatingStatus = false;
-          } else if (data.open_time && data.close_time) {
-            const [openHour, openMinute] = data.open_time
-              .split(":")
-              .map(Number);
-            const [closeHour, closeMinute] = data.close_time
-              .split(":")
-              .map(Number);
-
-            const startTime = new Date();
-            startTime.setHours(openHour, openMinute, 0, 0);
-
-            const endTime = new Date();
-            endTime.setHours(closeHour, closeMinute, 0, 0);
-
-            const currentTimeObj = new Date();
-            currentTimeObj.setHours(currentHour, currentMinute, 0, 0);
-
-            operatingStatus =
-              currentTimeObj >= startTime && currentTimeObj < endTime;
-          } else {
-            const startTime = new Date();
-            startTime.setHours(9, 0, 0, 0);
-
-            const endTime = new Date();
-            endTime.setHours(14, 0, 0, 0);
-
-            const currentTimeObj = new Date();
-            currentTimeObj.setHours(currentHour, currentMinute, 0, 0);
-
-            operatingStatus =
-              isWeekday &&
-              currentTimeObj >= startTime &&
-              currentTimeObj < endTime;
-          }
-        }
-
-        setIsOperating(operatingStatus);
-      } catch (error) {
-        console.error("営業状況の確認中にエラーが発生しました:", error);
-      }
-    };
-    checkOperatingStatus();
-    const intervalId = setInterval(checkOperatingStatus, 60000);
-    return () => clearInterval(intervalId);
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,17 +97,7 @@ export default function Login() {
         </div>
 
         <div className="p-8">
-          <div className="mb-6 text-center">
-            <p className="text-sm font-medium text-gray-600">営業状況</p>
-            <p
-              className={`text-lg font-bold ${isOperating ? "text-green-600" : "text-red-600"}`}
-            >
-              {isOperating ? "営業中" : "営業時間外"}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              営業時間: 月〜金 9:00 - 14:00
-            </p>
-          </div>
+          {/* 営業状況と営業時間表示は非表示化しました */}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
