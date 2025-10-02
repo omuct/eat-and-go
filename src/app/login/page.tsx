@@ -15,89 +15,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const checkOperatingStatus = async () => {
-      try {
-        const now = new Date();
-        setCurrentTime(now);
-
-        const currentDay = now.getDay();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-
-        const isWeekday = currentDay >= 1 && currentDay <= 5;
-
-        const { data } = await supabase
-          .from("business_closures")
-          .select("*")
-          .eq("date", format(now, "yyyy-MM-dd"))
-          .maybeSingle();
-
-        let operatingStatus = false;
-
-        if (!data) {
-          const startTime = new Date();
-          startTime.setHours(9, 0, 0, 0);
-
-          const endTime = new Date();
-          endTime.setHours(14, 0, 0, 0);
-
-          const currentTimeObj = new Date();
-          currentTimeObj.setHours(currentHour, currentMinute, 0, 0);
-
-          operatingStatus =
-            isWeekday &&
-            currentTimeObj >= startTime &&
-            currentTimeObj < endTime;
-        } else {
-          if (data.is_open === false) {
-            operatingStatus = false;
-          } else if (data.open_time && data.close_time) {
-            const [openHour, openMinute] = data.open_time
-              .split(":")
-              .map(Number);
-            const [closeHour, closeMinute] = data.close_time
-              .split(":")
-              .map(Number);
-
-            const startTime = new Date();
-            startTime.setHours(openHour, openMinute, 0, 0);
-
-            const endTime = new Date();
-            endTime.setHours(closeHour, closeMinute, 0, 0);
-
-            const currentTimeObj = new Date();
-            currentTimeObj.setHours(currentHour, currentMinute, 0, 0);
-
-            operatingStatus =
-              currentTimeObj >= startTime && currentTimeObj < endTime;
-          } else {
-            const startTime = new Date();
-            startTime.setHours(9, 0, 0, 0);
-
-            const endTime = new Date();
-            endTime.setHours(14, 0, 0, 0);
-
-            const currentTimeObj = new Date();
-            currentTimeObj.setHours(currentHour, currentMinute, 0, 0);
-
-            operatingStatus =
-              isWeekday &&
-              currentTimeObj >= startTime &&
-              currentTimeObj < endTime;
-          }
-        }
-
-        setIsOperating(operatingStatus);
-      } catch (error) {
-        console.error("営業状況の確認中にエラーが発生しました:", error);
-      }
-    };
-    checkOperatingStatus();
-    const intervalId = setInterval(checkOperatingStatus, 60000);
-    return () => clearInterval(intervalId);
-  }, []);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -111,7 +28,6 @@ export default function Login() {
       return;
     }
 
-    // ログイン後にプロフィール登録状況を確認
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -120,7 +36,6 @@ export default function Login() {
       console.log("ログインユーザー:", user.id);
 
       try {
-        // プロフィール情報を取得 - student_numberカラムを削除
         const { data: profiles, error: profileError } = await supabase
           .from("profiles")
           .select("name, phone, role")
@@ -141,35 +56,17 @@ export default function Login() {
         const profile = profiles?.[0];
 
         if (!profile) {
-          console.log("プロフィールデータが存在しない、アカウント設定へ");
           router.push(`/user/${user.id}/account`);
         } else if (!profile.name || profile.name.trim() === "") {
-          console.log("名前が未入力、アカウント設定へ");
           router.push(`/user/${user.id}/account`);
         } else {
-          console.log("プロフィール登録済み、注文画面へ");
           router.push("/orders");
         }
       } catch (error) {
-        console.error("プロフィール確認中にエラー:", error);
-        // エラーが発生した場合はアカウント設定へ誘導
         router.push(`/user/${user.id}/account`);
       }
     } else {
-      console.log("ユーザー情報取得失敗");
       router.push("/login");
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/` },
-    });
-
-    if (error) {
-      alert("Googleログインに失敗しました: " + error.message);
-      return;
     }
   };
 
@@ -179,22 +76,9 @@ export default function Login() {
         <div className="bg-gray-900 p-8 text-white text-center">
           <Utensils className="w-16 h-16 mx-auto mb-4 text-white" />
           <h1 className="text-2xl font-bold mb-2">EAT & GO</h1>
-          <p className="text-sm text-gray-400">簡単注文</p>
         </div>
 
         <div className="p-8">
-          <div className="mb-6 text-center">
-            <p className="text-sm font-medium text-gray-600">営業状況</p>
-            <p
-              className={`text-lg font-bold ${isOperating ? "text-green-600" : "text-red-600"}`}
-            >
-              {isOperating ? "営業中" : "営業時間外"}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              営業時間: 月〜金 9:00 - 14:00
-            </p>
-          </div>
-
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label
