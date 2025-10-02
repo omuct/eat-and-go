@@ -321,7 +321,7 @@ export default function AccountPage({ params }: AccountPageProps) {
       }
 
       if (passwordForm.newPassword.length < 6) {
-        toast.error("パスワードは6文字以上で入力してください");
+        toast.error("パスワードは8文字以上で入力してください");
         return;
       }
 
