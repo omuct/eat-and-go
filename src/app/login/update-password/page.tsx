@@ -10,40 +10,23 @@ export default function UpdatePassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [sessionReady, setSessionReady] = useState<boolean | null>(null);
   const router = useRouter();
 
   // セッション確認（メールリンク経由でのアクセスを想定）
   useEffect(() => {
     const ensureSession = async () => {
       try {
-        // すでにセッションがあるか確認
+        // すでにセッションがあるか確認し、なければURLのcodeで交換（UIには出さない）
         const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          setSessionReady(true);
-          return;
-        }
-
-        // メールリンク (PKCE) の code をセッションに交換
-        const href = typeof window !== "undefined" ? window.location.href : "";
-        if (href && href.includes("code=")) {
-          const { error: exErr } = await supabase.auth.exchangeCodeForSession(
-            href as any
-          );
-          if (!exErr) {
-            setSessionReady(true);
-            return;
+        if (!data.session) {
+          const href =
+            typeof window !== "undefined" ? window.location.href : "";
+          if (href && href.includes("code=")) {
+            await supabase.auth.exchangeCodeForSession(href as any);
           }
-          // 交換失敗
-          setSessionReady(false);
-          return;
         }
-
-        // 最後にもう一度セッション確認
-        const { data: data2 } = await supabase.auth.getSession();
-        setSessionReady(!!data2.session);
       } catch {
-        setSessionReady(false);
+        // no-op: UIに何も出さない
       }
     };
     ensureSession();
@@ -90,16 +73,7 @@ export default function UpdatePassword() {
       >
         <h2 className="text-2xl mb-4 text-center">新しいパスワードの設定</h2>
 
-        {sessionReady === false && (
-          <div className="mb-4 text-sm text-red-600">
-            パスワード再設定メールのリンクからアクセスしてください。既にこのページを開いている場合は、再度メールのリンクをクリックしてお試しください。
-          </div>
-        )}
-        {sessionReady === null && (
-          <div className="mb-4 text-sm text-gray-500">
-            セッションを確認中です...
-          </div>
-        )}
+        {/* セッション状態の案内表示はなし */}
 
         <input
           type="password"
@@ -121,7 +95,7 @@ export default function UpdatePassword() {
         />
         <button
           type="submit"
-          disabled={submitting || sessionReady !== true}
+          disabled={submitting}
           className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "更新中..." : "パスワードを更新"}
