@@ -135,7 +135,7 @@ const Header = ({ cartCount = 0, cartAnimating = false }: HeaderProps) => {
   );
 
   return (
-    <header className="bg-white shadow-md">
+    <header className="bg-white shadow-md sticky top-0 z-50 sm:static">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div
