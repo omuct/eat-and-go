@@ -109,14 +109,51 @@ export default function TrashDetailPage() {
 
   const handleDelete = async () => {
     if (!window.confirm("本当に削除しますか？")) return;
-    setLoading(true);
-    const { error } = await supabase.from("trash_bins").delete().eq("id", id);
-    setLoading(false);
-    if (error) {
-      alert("削除に失敗しました: " + error.message);
-    } else {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("trash_bins")
+        .delete()
+        .eq("id", id)
+        .select("id");
+      setLoading(false);
+      if (error) {
+        alert("削除に失敗しました: " + error.message);
+        return;
+      }
+      const affected = Array.isArray(data) ? data.length : 0;
+      if (affected === 0) {
+        // フォールバック: 管理者APIで再試行（サービスロールが設定されていれば成功します）
+        try {
+          const res = await fetch("/api/admin/trash/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            alert(
+              "削除できませんでした。権限（RLS）または環境設定の不足の可能性があります: " +
+                (body.error || res.statusText)
+            );
+            return;
+          }
+          alert("削除しました");
+          window.location.href = "/admin/trash";
+          return;
+        } catch (e: any) {
+          alert(
+            "削除できませんでした。権限（RLS）または環境設定の不足の可能性があります: " +
+              (e?.message || "unknown error")
+          );
+          return;
+        }
+      }
       alert("削除しました");
       window.location.href = "/admin/trash";
+    } catch (e: any) {
+      setLoading(false);
+      alert("削除に失敗しました: " + (e?.message || "unknown error"));
     }
   };
 
@@ -241,12 +278,12 @@ export default function TrashDetailPage() {
                 className="border px-2 py-1 rounded w-full"
                 required
               >
-                <option value="pet">ペットボトル</option>
-                <option value="paper">紙</option>
+                <option value="pet">プラスチック</option>
+                <option value="paper">燃えるゴミ</option>
               </select>
             </div>
             <div>
-              <label>上限（{type === "pet" ? "本" : "枚"}）</label>
+              <label>上限（{type === "pet" ? "個" : "枚"}）</label>
               <input
                 type="number"
                 value={capacity}
@@ -257,7 +294,7 @@ export default function TrashDetailPage() {
               />
             </div>
             <div>
-              <label>現在入っている数（{type === "pet" ? "本" : "枚"}）</label>
+              <label>現在入っている数（{type === "pet" ? "個" : "枚"}）</label>
               <input
                 type="number"
                 min={0}

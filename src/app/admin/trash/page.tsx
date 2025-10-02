@@ -83,11 +83,13 @@ export default function TrashPage() {
                     ごみ量: {bin.amount}
                     {bin.type === "pet" && (
                       <span className="ml-1 text-xs text-blue-600">
-                        (ペットボトル)
+                        (プラスチック)
                       </span>
                     )}
                     {bin.type === "paper" && (
-                      <span className="ml-1 text-xs text-green-600">(紙)</span>
+                      <span className="ml-1 text-xs text-green-600">
+                        (燃えるゴミ)
+                      </span>
                     )}
                   </span>
                 </span>
