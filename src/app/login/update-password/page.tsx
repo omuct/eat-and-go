@@ -17,12 +17,29 @@ export default function UpdatePassword() {
   useEffect(() => {
     const ensureSession = async () => {
       try {
+        // すでにセッションがあるか確認
         const { data } = await supabase.auth.getSession();
         if (data.session) {
           setSessionReady(true);
           return;
         }
-        // detectSessionInUrl が有効なため通常は不要だが、念のため再取得
+
+        // メールリンク (PKCE) の code をセッションに交換
+        const href = typeof window !== "undefined" ? window.location.href : "";
+        if (href && href.includes("code=")) {
+          const { error: exErr } = await supabase.auth.exchangeCodeForSession(
+            href as any
+          );
+          if (!exErr) {
+            setSessionReady(true);
+            return;
+          }
+          // 交換失敗
+          setSessionReady(false);
+          return;
+        }
+
+        // 最後にもう一度セッション確認
         const { data: data2 } = await supabase.auth.getSession();
         setSessionReady(!!data2.session);
       } catch {
@@ -78,6 +95,11 @@ export default function UpdatePassword() {
             パスワード再設定メールのリンクからアクセスしてください。既にこのページを開いている場合は、再度メールのリンクをクリックしてお試しください。
           </div>
         )}
+        {sessionReady === null && (
+          <div className="mb-4 text-sm text-gray-500">
+            セッションを確認中です...
+          </div>
+        )}
 
         <input
           type="password"
@@ -99,7 +121,7 @@ export default function UpdatePassword() {
         />
         <button
           type="submit"
-          disabled={submitting || sessionReady === false}
+          disabled={submitting || sessionReady !== true}
           className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "更新中..." : "パスワードを更新"}
