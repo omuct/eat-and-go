@@ -48,6 +48,35 @@ export default function PlaceMapPage() {
     if (id) fetchPlace();
   }, [id]);
 
+  const getTypeStyle = (type: string) => {
+    switch (type) {
+      case "pet":
+        return {
+          label: "プラスチック",
+          borderColor: "#2563eb",
+          glow: "0 0 6px rgba(37,99,235,0.55)",
+          badgeBg: "rgba(219,234,254,0.85)",
+          badgeColor: "#1e3a8a",
+        };
+      case "paper":
+        return {
+          label: "燃えるゴミ",
+          borderColor: "#f97316",
+          glow: "0 0 6px rgba(249,115,22,0.55)",
+          badgeBg: "rgba(255,237,213,0.85)",
+          badgeColor: "#7c2d12",
+        };
+      default:
+        return {
+          label: type || "不明",
+          borderColor: "#64748b",
+          glow: "0 0 6px rgba(100,116,139,0.45)",
+          badgeBg: "rgba(241,245,249,0.85)",
+          badgeColor: "#334155",
+        };
+    }
+  };
+
   return (
     <>
       <Header />
@@ -69,6 +98,32 @@ export default function PlaceMapPage() {
             {place.description && (
               <div className="mb-2 text-gray-600">{place.description}</div>
             )}
+            {/* 凡例 */}
+            <div className="flex flex-wrap gap-4 mb-4 items-center text-sm">
+              <div className="flex items-center gap-1">
+                <span
+                  className="w-3 h-3 rounded-full inline-block"
+                  style={{
+                    background: "#2563eb",
+                    boxShadow: "0 0 4px rgba(37,99,235,0.6)",
+                  }}
+                />
+                <span className="text-gray-700">プラスチック</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span
+                  className="w-3 h-3 rounded-full inline-block"
+                  style={{
+                    background: "#f97316",
+                    boxShadow: "0 0 4px rgba(249,115,22,0.6)",
+                  }}
+                />
+                <span className="text-gray-700">燃えるゴミ</span>
+              </div>
+              <div className="text-xs text-gray-500">
+                満杯90%以上で赤いアイコン表示
+              </div>
+            </div>
             <div className="mb-6">
               {place.googlemapurl ? (
                 <div className="w-full">
@@ -88,6 +143,7 @@ export default function PlaceMapPage() {
                       const rawTop = ((bin.lat - 35.0) / 0.1) * 100;
                       const left = Math.max(3, Math.min(97, rawLeft));
                       const top = Math.max(6, Math.min(94, rawTop));
+                      const meta = getTypeStyle(bin.type);
                       return (
                         <div
                           key={bin.id}
@@ -100,19 +156,48 @@ export default function PlaceMapPage() {
                             pointerEvents: "none",
                           }}
                         >
-                          <img
-                            src={
-                              percent >= 90
-                                ? "/gomibako_full.png"
-                                : "/gomibako_empty.png"
-                            }
-                            alt="trash bin"
-                            title={bin.name}
-                            className="block mx-auto w-8 h-auto"
-                          />
-                          <span className="inline-block mt-0.5 text-slate-800 bg-white/80 rounded px-1 text-[12px]">
-                            {percent}%
-                          </span>
+                          <div
+                            style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: 10,
+                              border: `3px solid ${meta.borderColor}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: meta.badgeBg,
+                              boxShadow: meta.glow,
+                              margin: "0 auto",
+                            }}
+                            title={`${bin.name} (${meta.label}) 満杯率: ${percent}%`}
+                          >
+                            <img
+                              src={
+                                percent >= 90
+                                  ? "/gomibako_full.png"
+                                  : "/gomibako_empty.png"
+                              }
+                              alt={`${meta.label} ごみ箱`}
+                              className="w-7 h-auto"
+                              style={{
+                                filter:
+                                  percent >= 90
+                                    ? "drop-shadow(0 0 4px rgba(220,38,38,0.7))"
+                                    : "none",
+                              }}
+                            />
+                          </div>
+                          <div
+                            className="mt-0.5 mx-auto px-1 rounded text-[10px] font-medium"
+                            style={{
+                              background: meta.badgeBg,
+                              color: meta.badgeColor,
+                              lineHeight: 1.2,
+                              maxWidth: 70,
+                            }}
+                          >
+                            {meta.label} {percent}%
+                          </div>
                         </div>
                       );
                     })}
