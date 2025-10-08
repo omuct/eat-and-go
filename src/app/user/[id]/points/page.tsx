@@ -9,9 +9,10 @@ import Header from "@/app/_components/Header";
 import { useAuth } from "@/hooks/useAuth";
 
 // ストレージバケット名 (環境変数で上書き可能: NEXT_PUBLIC_REWARD_IMAGE_BUCKET)
-// 未設定時は "image_url" を既定とする（要: Supabase Storage で同名バケット作成済み）
+// 未設定時は "reward-images" を既定とする（Supabase Storage に reward-images バケットを作成 & 公開設定/RLS ポリシー必須）
+// 例: 環境変数を削除しても reward-images バケットが存在すれば動作します。
 const REWARD_IMAGE_BUCKET =
-  process.env.NEXT_PUBLIC_REWARD_IMAGE_BUCKET || "image_url";
+  process.env.NEXT_PUBLIC_REWARD_IMAGE_BUCKET || "reward-images";
 
 export default function UserPointsPage() {
   const params = useParams();
@@ -27,7 +28,7 @@ export default function UserPointsPage() {
     cost: number; // 必要ポイント
     description?: string | null;
     emoji?: string | null; // 互換のため残す（今後非推奨）
-    image_url?: string | null; // 新規追加
+    image_path?: string | null; // ストレージ内相対パス (例: rewards/uuid.png)
     is_active?: boolean;
     created_at?: string;
     updated_at?: string;
@@ -42,7 +43,6 @@ export default function UserPointsPage() {
     cost: "", // 空文字許容 → 保存時に数値変換
     description: "",
     is_active: true,
-    image_url: "",
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -56,28 +56,11 @@ export default function UserPointsPage() {
     null
   );
 
-  // 旧画像削除用: public URL からストレージパス抽出
-  const extractStoragePath = (url: string) => {
-    // 例: https://<project>.supabase.co/storage/v1/object/public/<bucket>/rewards/uuid.png
-    const marker = `/${REWARD_IMAGE_BUCKET}/`;
-    const idx = url.indexOf(marker);
-    if (idx === -1) return null;
-    return url.substring(idx + marker.length);
-  };
-
-  // 画像をアップロードし、旧画像があれば削除（エラーは握りつぶし）
-  const replaceImage = async (newFile: File, oldUrl?: string | null) => {
-    const newUrl = await uploadImage(newFile);
-    if (oldUrl) {
-      const path = extractStoragePath(oldUrl);
-      if (path) {
-        supabase.storage
-          .from(REWARD_IMAGE_BUCKET)
-          .remove([path])
-          .catch((e) => console.warn("旧画像削除失敗", e));
-      }
-    }
-    return newUrl;
+  // image_path から公開URLを生成
+  const publicUrlFromPath = (p?: string | null) => {
+    if (!p) return "";
+    return supabase.storage.from(REWARD_IMAGE_BUCKET).getPublicUrl(p).data
+      .publicUrl;
   };
 
   // バケット存在確認（初回のみ実行、結果をキャッシュ）
@@ -121,7 +104,7 @@ export default function UserPointsPage() {
 
         // rewards 詳細列指定
         const detailColumns =
-          "id, name, cost, description, emoji, image_url, is_active, created_at, updated_at";
+          "id, name, cost, description, emoji, image_path, is_active, created_at, updated_at";
         let rewardsQuery = supabase
           .from("rewards")
           .select(detailColumns)
@@ -180,7 +163,7 @@ export default function UserPointsPage() {
 
   const refreshRewards = async () => {
     const detailColumns =
-      "id, name, cost, description, emoji, image_url, is_active, created_at, updated_at";
+      "id, name, cost, description, emoji, image_path, is_active, created_at, updated_at";
     let { data, error } = await supabase
       .from("rewards")
       .select(detailColumns)
@@ -223,9 +206,8 @@ export default function UserPointsPage() {
       cost: String(r.cost),
       description: r.description || "",
       is_active: r.is_active ?? true,
-      image_url: r.image_url || "",
     });
-    setImagePreview(r.image_url || "");
+    setImagePreview(publicUrlFromPath(r.image_path));
     setImageFile(null);
   };
 
@@ -244,11 +226,13 @@ export default function UserPointsPage() {
     }
   };
 
-  const uploadImage = async (file: File) => {
+  const uploadImageToPath = async (
+    file: File,
+    objectPath: string,
+    { upsert = false } = {}
+  ) => {
     const ok = await ensureBucketExists();
-    if (!ok) {
-      throw new Error(bucketError || "画像バケットが利用できません");
-    }
+    if (!ok) throw new Error(bucketError || "画像バケットが利用できません");
     const MAX_FILE_SIZE_MB = 5;
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       throw new Error(
@@ -260,19 +244,18 @@ export default function UserPointsPage() {
     if (!allowed.includes(ext)) {
       throw new Error(`未対応の拡張子です: .${ext}`);
     }
-    const fileName = `rewards/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage
       .from(REWARD_IMAGE_BUCKET)
-      .upload(fileName, file, { cacheControl: "3600", upsert: false });
+      .upload(objectPath, file, { cacheControl: "3600", upsert });
     if (error) {
-      console.error("[uploadImage] Storage upload error", error);
+      console.error("[uploadImageToPath] Storage upload error", error);
       const msg = (error as any).message?.toLowerCase?.() || "";
       if (msg.includes("duplicate")) {
         throw new Error("同名ファイルが既に存在します (再試行してください)");
       }
       if (msg.includes("bucket not found")) {
         throw new Error(
-          `画像バケット '${REWARD_IMAGE_BUCKET}' が存在しません。Supabase の Storage で同名バケットを作成し、公開設定/ポリシーを確認してください。`
+          `画像バケット '${REWARD_IMAGE_BUCKET}' が存在しません。Storage を確認してください。`
         );
       }
       if (
@@ -283,16 +266,14 @@ export default function UserPointsPage() {
         throw new Error("ファイルサイズが制限を超えています");
       }
       if (msg.includes("unauthorized") || msg.includes("permission")) {
-        throw new Error("権限がありません。管理者として再ログインしてください");
+        throw new Error(
+          "権限がありません。ポリシー/ログイン状態を確認してください"
+        );
       }
       throw new Error(
         `アップロードエラー: ${(error as any).message || "不明なエラー"}`
       );
     }
-    const { data } = supabase.storage
-      .from(REWARD_IMAGE_BUCKET)
-      .getPublicUrl(fileName);
-    return data.publicUrl;
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,30 +312,36 @@ export default function UserPointsPage() {
         return;
       }
 
-      let imageUrl = formState.image_url || "";
-      if (imageFile) {
-        try {
-          imageUrl = await replaceImage(
-            imageFile,
-            editingReward ? editingReward.image_url : undefined
-          );
-        } catch (imgErr: any) {
-          console.error("画像アップロード詳細", imgErr);
-          alert(
-            `画像アップロードに失敗しました: ${imgErr?.message || "不明なエラー"}`
-          );
-          return;
-        }
-      }
-
       if (editingReward) {
+        let newImagePath: string | undefined;
+        if (imageFile) {
+          const ext = (imageFile.name.split(".").pop() || "png").toLowerCase();
+          newImagePath = `rewards/${crypto.randomUUID()}.${ext}`;
+          try {
+            await uploadImageToPath(imageFile, newImagePath);
+            if (editingReward.image_path) {
+              supabase.storage
+                .from(REWARD_IMAGE_BUCKET)
+                .remove([editingReward.image_path])
+                .catch((e) => console.warn("旧画像削除失敗", e));
+            }
+          } catch (imgErr: any) {
+            console.error("画像アップロード詳細", imgErr);
+            alert(
+              `画像アップロードに失敗しました: ${imgErr?.message || "不明なエラー"}`
+            );
+            return;
+          }
+        }
         const { error } = await supabase
           .from("rewards")
           .update({
             name: formState.name,
             cost: costNum,
             description: formState.description || null,
-            image_url: imageUrl || null,
+            image_path: newImagePath
+              ? newImagePath
+              : editingReward.image_path || null,
             is_active: formState.is_active,
             updated_at: new Date().toISOString(),
           })
@@ -363,14 +350,34 @@ export default function UserPointsPage() {
           alert("更新に失敗しました: " + error.message);
         }
       } else {
+        let newImagePath: string | null = null;
+        if (imageFile) {
+          const ext = (imageFile.name.split(".").pop() || "png").toLowerCase();
+          newImagePath = `rewards/${crypto.randomUUID()}.${ext}`;
+          try {
+            await uploadImageToPath(imageFile, newImagePath);
+          } catch (imgErr: any) {
+            console.error("画像アップロード詳細", imgErr);
+            alert(
+              `画像アップロードに失敗しました: ${imgErr?.message || "不明なエラー"}`
+            );
+            return;
+          }
+        }
         const { error } = await supabase.from("rewards").insert({
           name: formState.name,
           cost: costNum,
           description: formState.description || null,
-          image_url: imageUrl || null,
+          image_path: newImagePath,
           is_active: formState.is_active,
         });
         if (error) {
+          if (newImagePath) {
+            supabase.storage
+              .from(REWARD_IMAGE_BUCKET)
+              .remove([newImagePath])
+              .catch(() => {});
+          }
           alert("作成に失敗しました: " + error.message);
         }
       }
@@ -381,7 +388,6 @@ export default function UserPointsPage() {
         cost: "",
         description: "",
         is_active: true,
-        image_url: "",
       });
       setImageFile(null);
       setImagePreview("");
@@ -434,7 +440,6 @@ export default function UserPointsPage() {
                         cost: "",
                         description: "",
                         is_active: true,
-                        image_url: "",
                       });
                       setImageFile(null);
                       setImagePreview("");
@@ -507,7 +512,7 @@ export default function UserPointsPage() {
                           onClick={() => {
                             setImageFile(null);
                             setImagePreview("");
-                            setFormState({ ...formState, image_url: "" });
+                            // 画像リセット: image_path はフォームでは保持しない
                           }}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs"
                         >
@@ -586,7 +591,6 @@ export default function UserPointsPage() {
                         cost: "",
                         description: "",
                         is_active: true,
-                        image_url: "",
                       });
                       setImageFile(null);
                       setImagePreview("");
@@ -650,9 +654,9 @@ export default function UserPointsPage() {
                       )}
                       <div className="flex items-start gap-3">
                         <div className="text-3xl" aria-hidden>
-                          {item.image_url ? (
+                          {item.image_path ? (
                             <img
-                              src={item.image_url}
+                              src={publicUrlFromPath(item.image_path)}
                               alt={item.name}
                               className="w-12 h-12 object-cover rounded border bg-gray-50"
                             />
