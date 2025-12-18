@@ -213,7 +213,6 @@ npm run dev
 - 🎨 UI/UXデザイン: [@arikait0](https://github.com/arikait0)
 
 ## 📞 お問い合わせ
-
 - 📧 Email: [ri22077b@st.omu.ac.jp]
 - 🐙 GitHub: [https://github.com/omuct-proken]
 
